@@ -1,18 +1,21 @@
 package repository
 
 import (
-	"Backend/config"
-	"Backend/models"
+	"backend/config"
+	"backend/models"
 
 	"gorm.io/gorm"
 )
 
 type HasilAIRepository interface {
 	Create(hasil *models.HasilAI) error
+
 	GetByID(id uint64) (*models.HasilAI, error)
 	GetByPengaduanID(pengaduanID uint64) (*models.HasilAI, error)
 	GetAll() ([]models.HasilAI, error)
+
 	Update(hasil *models.HasilAI) error
+
 	Delete(id uint64) error
 }
 
@@ -26,17 +29,17 @@ func NewHasilAIRepository() HasilAIRepository {
 	}
 }
 
-// ======================
+// ===================================
 // CREATE
-// ======================
+// ===================================
 
 func (r *hasilAIRepository) Create(hasil *models.HasilAI) error {
 	return r.db.Create(hasil).Error
 }
 
-// ======================
+// ===================================
 // GET BY ID
-// ======================
+// ===================================
 
 func (r *hasilAIRepository) GetByID(id uint64) (*models.HasilAI, error) {
 
@@ -53,9 +56,9 @@ func (r *hasilAIRepository) GetByID(id uint64) (*models.HasilAI, error) {
 	return &hasil, nil
 }
 
-// ======================
+// ===================================
 // GET BY PENGADUAN ID
-// ======================
+// ===================================
 
 func (r *hasilAIRepository) GetByPengaduanID(pengaduanID uint64) (*models.HasilAI, error) {
 
@@ -73,9 +76,9 @@ func (r *hasilAIRepository) GetByPengaduanID(pengaduanID uint64) (*models.HasilA
 	return &hasil, nil
 }
 
-// ======================
+// ===================================
 // GET ALL
-// ======================
+// ===================================
 
 func (r *hasilAIRepository) GetAll() ([]models.HasilAI, error) {
 
@@ -89,17 +92,20 @@ func (r *hasilAIRepository) GetAll() ([]models.HasilAI, error) {
 	return hasil, err
 }
 
-// ======================
+// ===================================
 // UPDATE
-// ======================
+// ===================================
 
 func (r *hasilAIRepository) Update(hasil *models.HasilAI) error {
-	return r.db.Save(hasil).Error
+	return r.db.
+		Model(&models.HasilAI{}).
+		Where("id = ?", hasil.ID).
+		Updates(hasil).Error
 }
 
-// ======================
+// ===================================
 // DELETE
-// ======================
+// ===================================
 
 func (r *hasilAIRepository) Delete(id uint64) error {
 	return r.db.Delete(&models.HasilAI{}, id).Error
