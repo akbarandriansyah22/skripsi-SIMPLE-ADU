@@ -2,17 +2,22 @@ package services
 
 import (
 	dto "backend/DTO"
+	"backend/config"
 	"backend/models"
 	"backend/repository"
+
+	"gorm.io/gorm"
 )
 
 type MahasiswaService struct {
-	repo repository.MahasiswaRepository
+	repo     repository.MahasiswaRepository
+	userRepo repository.UserRepository
 }
 
 func NewMahasiswaService() *MahasiswaService {
 	return &MahasiswaService{
-		repo: repository.NewMahasiswaRepository(),
+		repo:     repository.NewMahasiswaRepository(),
+		userRepo: repository.NewUserRepository(),
 	}
 }
 
@@ -29,16 +34,25 @@ func (s *MahasiswaService) GetProfile(userID uint64) (*models.Mahasiswa, error) 
 // ======================================
 
 func (s *MahasiswaService) UpdateProfile(userID uint64, req dto.UpdateProfileRequest) error {
+	return config.DB.Transaction(func(tx *gorm.DB) error {
+		var mahasiswa models.Mahasiswa
+		if err := tx.Where("user_id = ?", userID).First(&mahasiswa).Error; err != nil {
+			return err
+		}
 
-	mahasiswa, err := s.repo.GetByUserID(userID)
+		mahasiswa.NoHP = req.NoHP
+		if err := tx.Save(&mahasiswa).Error; err != nil {
+			return err
+		}
 
-	if err != nil {
-		return err
-	}
+		var user models.User
+		if err := tx.First(&user, userID).Error; err != nil {
+			return err
+		}
 
-	mahasiswa.NoHP = req.NoHP
-
-	return s.repo.Update(mahasiswa)
+		user.NamaLengkap = req.NamaLengkap
+		return tx.Save(&user).Error
+	})
 }
 
 // ======================================

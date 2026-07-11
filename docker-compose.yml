@@ -1,0 +1,86 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: simpel-adu-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: akbar123
+      POSTGRES_DB: simpel_adu
+
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - simpel-network
+
+  ai:
+    build:
+      context: ./AI
+      dockerfile: Dockerfile
+
+    container_name: simpel-adu-ai
+    restart: unless-stopped
+
+    ports:
+      - "8000:8000"
+
+    networks:
+      - simpel-network
+
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+
+    container_name: simpel-adu-backend
+    restart: unless-stopped
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ai:
+        condition: service_started
+
+    env_file:
+      - ./Backend/.env
+
+    ports:
+      - "8080:8080"
+
+    networks:
+      - simpel-network
+
+  frontend:
+    build:
+      context: ./FrontEnd
+      dockerfile: Dockerfile
+
+    container_name: simpel-adu-frontend
+    restart: unless-stopped
+
+    depends_on:
+      - backend
+
+    ports:
+      - "5173:80"
+
+    networks:
+      - simpel-network
+
+volumes:
+  postgres_data:
+
+networks:
+  simpel-network:
+    driver: bridge

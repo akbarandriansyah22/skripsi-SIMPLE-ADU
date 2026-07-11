@@ -11,7 +11,7 @@ type Disposisi struct {
 
 	// Relasi
 	Pengaduan Pengaduan `gorm:"foreignKey:PengaduanID;references:ID" json:"pengaduan"`
-	Pimpinan  User       `gorm:"foreignKey:PimpinanID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"pimpinan"`
+	Pimpinan  User      `gorm:"foreignKey:PimpinanID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"pimpinan"`
 }
 
 func (Disposisi) TableName() string {

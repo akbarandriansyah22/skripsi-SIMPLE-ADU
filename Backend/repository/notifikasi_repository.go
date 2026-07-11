@@ -17,6 +17,7 @@ type NotifikasiRepository interface {
 
 	Update(notifikasi *models.Notifikasi) error
 	MarkAsRead(id uint64) error
+	MarkAsReadByUserID(id uint64, userID uint64) error
 
 	Delete(id uint64) error
 }
@@ -126,6 +127,21 @@ func (r *notifikasiRepository) MarkAsRead(id uint64) error {
 		Model(&models.Notifikasi{}).
 		Where("id = ?", id).
 		Update("is_read", true).Error
+}
+
+func (r *notifikasiRepository) MarkAsReadByUserID(id uint64, userID uint64) error {
+	result := r.db.
+		Model(&models.Notifikasi{}).
+		Where("id = ? AND user_id = ?", id, userID).
+		Update("is_read", true)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+
+	return nil
 }
 
 // ===================================

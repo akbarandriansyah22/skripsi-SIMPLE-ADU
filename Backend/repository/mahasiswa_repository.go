@@ -43,7 +43,9 @@ func (r *mahasiswaRepository) GetByID(id uint64) (*models.Mahasiswa, error) {
 
 	var mahasiswa models.Mahasiswa
 
-	err := r.db.First(&mahasiswa, id).Error
+	err := r.db.
+		Preload("User").
+		First(&mahasiswa, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +61,10 @@ func (r *mahasiswaRepository) GetByUserID(userID uint64) (*models.Mahasiswa, err
 
 	var mahasiswa models.Mahasiswa
 
-	err := r.db.Where("user_id = ?", userID).First(&mahasiswa).Error
+	err := r.db.
+		Where("user_id = ?", userID).
+		Preload("User").
+		First(&mahasiswa).Error
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +80,10 @@ func (r *mahasiswaRepository) GetByNIM(nim string) (*models.Mahasiswa, error) {
 
 	var mahasiswa models.Mahasiswa
 
-	err := r.db.Where("nim = ?", nim).First(&mahasiswa).Error
+	err := r.db.
+		Where("nim = ?", nim).
+		Preload("User").
+		First(&mahasiswa).Error
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +99,9 @@ func (r *mahasiswaRepository) GetAll() ([]models.Mahasiswa, error) {
 
 	var mahasiswa []models.Mahasiswa
 
-	err := r.db.Find(&mahasiswa).Error
+	err := r.db.
+		Preload("User").
+		Find(&mahasiswa).Error
 
 	return mahasiswa, err
 }

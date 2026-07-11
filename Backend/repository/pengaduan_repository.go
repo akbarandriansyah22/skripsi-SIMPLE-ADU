@@ -52,6 +52,8 @@ func (r *pengaduanRepository) GetByID(id uint64) (*models.Pengaduan, error) {
 		Preload("User").
 		Preload("Kategori").
 		Preload("Unit").
+		Preload("HasilAI").
+		Preload("Disposisi").
 		First(&pengaduan, id).Error
 
 	if err != nil {
@@ -74,6 +76,8 @@ func (r *pengaduanRepository) GetByKodeTiket(kode string) (*models.Pengaduan, er
 		Preload("User").
 		Preload("Kategori").
 		Preload("Unit").
+		Preload("HasilAI").
+		Preload("Disposisi").
 		First(&pengaduan).Error
 
 	if err != nil {
@@ -95,6 +99,8 @@ func (r *pengaduanRepository) GetByUserID(userID uint64) ([]models.Pengaduan, er
 		Where("user_id = ?", userID).
 		Preload("Kategori").
 		Preload("Unit").
+		Preload("HasilAI").
+		Preload("Disposisi").
 		Order("created_at DESC").
 		Find(&pengaduan).Error
 
@@ -114,6 +120,8 @@ func (r *pengaduanRepository) GetByStatus(status string) ([]models.Pengaduan, er
 		Preload("User").
 		Preload("Kategori").
 		Preload("Unit").
+		Preload("HasilAI").
+		Preload("Disposisi").
 		Order("created_at DESC").
 		Find(&pengaduan).Error
 
@@ -132,6 +140,8 @@ func (r *pengaduanRepository) GetAll() ([]models.Pengaduan, error) {
 		Preload("User").
 		Preload("Kategori").
 		Preload("Unit").
+		Preload("HasilAI").
+		Preload("Disposisi").
 		Order("created_at DESC").
 		Find(&pengaduan).Error
 

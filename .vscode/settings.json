@@ -1,0 +1,10 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/AI/.venv/bin/python",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/AI"
+  ],
+  "pylint.cwd": "${workspaceFolder}/AI",
+  "chat.tools.terminal.autoApprove": {
+    "pdftotext": true
+  }
+}

@@ -88,11 +88,11 @@ func (s *AuthService) Register(req dto.RegisterRequest) (*dto.LoginResponse, err
 	return &dto.LoginResponse{
 		Token: token,
 		User: dto.UserResponse{
-			ID:           user.ID,
-			NamaLengkap:  user.NamaLengkap,
-			Email:        user.Email,
-			Role:         user.Role,
-			IsActive:     user.IsActive,
+			ID:          user.ID,
+			NamaLengkap: user.NamaLengkap,
+			Email:       user.Email,
+			Role:        user.Role,
+			IsActive:    user.IsActive,
 		},
 	}, nil
 }
@@ -128,11 +128,11 @@ func (s *AuthService) Login(req dto.LoginRequest) (*dto.LoginResponse, error) {
 	return &dto.LoginResponse{
 		Token: token,
 		User: dto.UserResponse{
-			ID:           user.ID,
-			NamaLengkap:  user.NamaLengkap,
-			Email:        user.Email,
-			Role:         user.Role,
-			IsActive:     user.IsActive,
+			ID:          user.ID,
+			NamaLengkap: user.NamaLengkap,
+			Email:       user.Email,
+			Role:        user.Role,
+			IsActive:    user.IsActive,
 		},
 	}, nil
 }
@@ -150,10 +150,10 @@ func (s *AuthService) Profile(userID uint) (*dto.UserResponse, error) {
 	}
 
 	return &dto.UserResponse{
-		ID:           user.ID,
-		NamaLengkap:  user.NamaLengkap,
-		Email:        user.Email,
-		Role:         user.Role,
-		IsActive:     user.IsActive,
+		ID:          user.ID,
+		NamaLengkap: user.NamaLengkap,
+		Email:       user.Email,
+		Role:        user.Role,
+		IsActive:    user.IsActive,
 	}, nil
 }

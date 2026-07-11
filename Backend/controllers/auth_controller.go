@@ -4,12 +4,52 @@ import (
 	"net/http"
 
 	dto "backend/DTO"
+	service "backend/services"
 
 	"github.com/gin-gonic/gin"
 )
 
 type AuthController struct {
 	service *service.AuthService
+}
+
+// ==========================
+// PROFILE
+// ==========================
+
+func (c *AuthController) Profile(ctx *gin.Context) {
+	userIDValue, exists := ctx.Get("user_id")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"message": "User tidak ditemukan",
+		})
+		return
+	}
+
+	userID, ok := userIDValue.(uint)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"message": "User tidak valid",
+		})
+		return
+	}
+
+	result, err := c.service.Profile(userID)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Profile berhasil diambil",
+		"data":    result,
+	})
 }
 
 func NewAuthController() *AuthController {
