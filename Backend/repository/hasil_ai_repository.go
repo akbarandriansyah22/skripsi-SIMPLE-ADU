@@ -5,10 +5,12 @@ import (
 	"backend/models"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type HasilAIRepository interface {
 	Create(hasil *models.HasilAI) error
+	UpsertByPengaduanID(hasil *models.HasilAI) error
 
 	GetByID(id uint64) (*models.HasilAI, error)
 	GetByPengaduanID(pengaduanID uint64) (*models.HasilAI, error)
@@ -35,6 +37,18 @@ func NewHasilAIRepository() HasilAIRepository {
 
 func (r *hasilAIRepository) Create(hasil *models.HasilAI) error {
 	return r.db.Create(hasil).Error
+}
+
+func (r *hasilAIRepository) UpsertByPengaduanID(hasil *models.HasilAI) error {
+	return r.db.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "pengaduan_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{
+			"skor_sentimen",
+			"sentimen",
+			"urgensi",
+			"updated_at",
+		}),
+	}).Create(hasil).Error
 }
 
 // ===================================

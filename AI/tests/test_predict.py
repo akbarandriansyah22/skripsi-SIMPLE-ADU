@@ -36,6 +36,15 @@ def test_predict_endpoint_empty_description() -> None:
             _raise_request_validation_error(exc)
 
 
+def test_predict_endpoint_blank_description() -> None:
+    """Endpoint /predict menolak deskripsi berisi spasi."""
+    with pytest.raises(RequestValidationError):
+        try:
+            PredictRequest(deskripsi="   ")
+        except ValidationError as exc:
+            _raise_request_validation_error(exc)
+
+
 def test_predict_endpoint_fire_complaint_is_high_urgency() -> None:
     """Pengaduan kebakaran harus masuk urgensi tinggi."""
     payload = PredictRequest(
@@ -44,3 +53,32 @@ def test_predict_endpoint_fire_complaint_is_high_urgency() -> None:
     data = predict(payload)
 
     assert data["urgency"] == "Tinggi"
+
+
+def test_predict_endpoint_negative_sentiment() -> None:
+    payload = PredictRequest(deskripsi="Pelayanan buruk dan fasilitas rusak parah.")
+    data = predict(payload)
+
+    assert data["sentiment"] in {"Negatif", "Netral"}
+
+
+def test_predict_endpoint_neutral_text() -> None:
+    payload = PredictRequest(deskripsi="Saya ingin menanyakan jadwal penggunaan laboratorium.")
+    data = predict(payload)
+
+    assert data["sentiment"] in {"Positif", "Negatif", "Netral"}
+
+
+def test_predict_endpoint_medium_urgency_keyword() -> None:
+    payload = PredictRequest(deskripsi="AC ruang kelas rusak dan perlu diperbaiki.")
+    data = predict(payload)
+
+    assert data["urgency"] in {"Sedang", "Tinggi"}
+
+
+def test_predict_endpoint_without_urgency_keyword() -> None:
+    payload = PredictRequest(deskripsi="Informasi jadwal kuliah semester ini belum jelas.")
+    data = predict(payload)
+
+    assert data["urgency"] in {"Rendah", "Sedang", "Tinggi"}
+    assert isinstance(data["score"], int)

@@ -9,6 +9,7 @@ type HasilAI struct {
 	SkorSentimen int       `gorm:"column:skor_sentimen;not null" json:"skor_sentimen"`
 	Urgensi      string    `gorm:"column:urgensi;size:20;not null" json:"urgensi"`
 	CreatedAt    time.Time `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt    time.Time `gorm:"column:updated_at" json:"updated_at"`
 
 	// Relasi
 	Pengaduan *Pengaduan `gorm:"foreignKey:PengaduanID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`

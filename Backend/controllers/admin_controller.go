@@ -108,6 +108,21 @@ func (c *AdminController) ForwardToPimpinan(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"success": true, "message": "Pengaduan berhasil diteruskan ke pimpinan"})
 }
 
+func (c *AdminController) ReanalyzeAI(ctx *gin.Context) {
+	id, ok := getIDParam(ctx, "id")
+	if !ok {
+		return
+	}
+
+	result, err := c.service.ReanalyzeAI(id)
+	if err != nil {
+		ctx.JSON(http.StatusBadGateway, gin.H{"success": false, "message": "Analisis AI gagal diperbarui"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"success": true, "message": "Analisis AI berhasil diperbarui", "data": result})
+}
+
 func (c *AdminController) GetUnits(ctx *gin.Context) {
 	result, err := c.service.GetUnits()
 	if err != nil {

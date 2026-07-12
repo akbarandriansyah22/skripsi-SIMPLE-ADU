@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -44,14 +45,25 @@ func (s *AIService) Analyze(req dto.AIRequest) (*dto.AIResponse, error) {
 		return nil, err
 	}
 
-	resp, err := s.client.Post(s.baseURL+"/predict", "application/json", bytes.NewBuffer(body))
+	httpReq, err := http.NewRequest(http.MethodPost, s.baseURL+"/predict", bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.client.Do(httpReq)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return nil, fmt.Errorf("AI service mengembalikan status %d", resp.StatusCode)
+		errorBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		msg := strings.TrimSpace(string(errorBody))
+		if msg == "" {
+			msg = http.StatusText(resp.StatusCode)
+		}
+		return nil, fmt.Errorf("AI service mengembalikan status %d: %s", resp.StatusCode, msg)
 	}
 
 	var prediction aiPredictResponse
@@ -64,10 +76,9 @@ func (s *AIService) Analyze(req dto.AIRequest) (*dto.AIResponse, error) {
 	}
 
 	result := dto.AIResponse{
-		Score:      prediction.Score,
-		Sentimen:   prediction.Sentiment,
-		Urgensi:    prediction.Urgency,
-		Confidence: float64(prediction.Score),
+		Score:    prediction.Score,
+		Sentimen: prediction.Sentiment,
+		Urgensi:  prediction.Urgency,
 	}
 
 	return &result, nil

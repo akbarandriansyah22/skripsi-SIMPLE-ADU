@@ -6,7 +6,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from services.prediction import predict_complaint
 
@@ -19,6 +19,13 @@ class PredictRequest(BaseModel):
     """Schema request endpoint prediksi."""
 
     deskripsi: str = Field(..., min_length=1)
+
+    @field_validator("deskripsi")
+    @classmethod
+    def deskripsi_not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Deskripsi wajib diisi")
+        return value
 
 
 class PredictResponse(BaseModel):
