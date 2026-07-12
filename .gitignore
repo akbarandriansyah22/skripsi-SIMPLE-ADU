@@ -1,0 +1,39 @@
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Python
+AI/.venv/
+AI/venv/
+.venv/
+venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Go
+Backend/bin/
+Backend/tmp/
+*.test
+coverage.out
+
+# Frontend
+FrontEnd/node_modules/
+FrontEnd/dist/
+FrontEnd/.vite/
+
+# Editor
+.vscode/
+.idea/
+
+# Runtime uploads and logs
+uploads/
+Backend/uploads/
+*.log

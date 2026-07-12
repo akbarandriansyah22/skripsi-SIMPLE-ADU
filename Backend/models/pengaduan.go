@@ -24,7 +24,7 @@ type Pengaduan struct {
 	Kategori KategoriPengaduan `gorm:"foreignKey:KategoriID;references:ID" json:"kategori"`
 	Unit     Unit              `gorm:"foreignKey:UnitID;references:ID" json:"unit"`
 
-	HasilAI   HasilAI    `gorm:"foreignKey:PengaduanID;references:ID" json:"hasil_ai"`
+	HasilAI   *HasilAI   `gorm:"foreignKey:PengaduanID;references:ID" json:"hasil_ai,omitempty"`
 	Disposisi *Disposisi `gorm:"foreignKey:PengaduanID;references:ID" json:"disposisi"`
 
 	ResponPengaduan []ResponPengaduan `gorm:"foreignKey:PengaduanID;references:ID" json:"respon_pengaduan"`

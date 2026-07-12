@@ -111,7 +111,7 @@
               <td class="px-6 py-4 text-slate-600">
                 {{ p.pelapor?.nama || p.pelapor_name || p.user?.nama_lengkap || p.user?.nama || "-" }}
               </td>
-              <td class="px-6 py-4 text-slate-600">{{ p.kategori?.nama || p.kategori_prediksi || p.kategori || "-" }}</td>
+              <td class="px-6 py-4 text-slate-600">{{ p.kategori?.nama || p.kategori || "-" }}</td>
               <td class="px-6 py-4">
                 <span :class="statusBadgeClass(p.status)">{{
                   p.status || "-"
@@ -162,14 +162,14 @@ const statusOptions = computed(() => uniqueValues("status"));
 const kategoriOptions = computed(() => uniqueValues("kategori"));
 
 const uniqueValues = (key) =>
-  [...new Set(pengaduans.value.map((item) => key === "kategori" ? (item?.kategori?.nama || item?.kategori_prediksi || item?.kategori) : item?.[key]).filter(Boolean))];
+  [...new Set(pengaduans.value.map((item) => key === "kategori" ? (item?.kategori?.nama || item?.kategori) : item?.[key]).filter(Boolean))];
 
 const filteredPengaduans = computed(() => {
   const search = filters.value.search.toLowerCase();
   const items = pengaduans.value.filter((item) => {
     const text = `${item.kode_tiket || ""} ${item.kode || ""} ${item.judul || ""} ${item.pelapor?.nama || ""} ${item.pelapor_name || ""} ${item.user?.nama_lengkap || ""} ${item.user?.nama || ""}`.toLowerCase();
     const statusOk = !filters.value.status || item.status === filters.value.status;
-    const kategori = item.kategori?.nama || item.kategori_prediksi || item.kategori;
+    const kategori = item.kategori?.nama || item.kategori;
     const kategoriOk = !filters.value.kategori || kategori === filters.value.kategori;
     return text.includes(search) && statusOk && kategoriOk;
   });

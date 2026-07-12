@@ -81,7 +81,7 @@ func (s *PimpinanService) urgensiTinggi() ([]models.Pengaduan, error) {
 
 	filtered := make([]models.Pengaduan, 0)
 	for _, item := range items {
-		if strings.ToLower(item.HasilAI.Urgensi) == strings.ToLower("Tinggi") {
+		if item.HasilAI != nil && strings.ToLower(item.HasilAI.Urgensi) == strings.ToLower("Tinggi") {
 			filtered = append(filtered, item)
 		}
 	}

@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"log"
 	"strings"
 
 	dto "backend/DTO"
@@ -11,15 +12,19 @@ import (
 
 type AdminService struct {
 	pengaduanRepo repository.PengaduanRepository
+	hasilAIRepo   repository.HasilAIRepository
 	unitRepo      repository.UnitRepository
 	disposisiRepo repository.DisposisiRepository
+	aiService     *AIService
 }
 
 func NewAdminService() *AdminService {
 	return &AdminService{
 		pengaduanRepo: repository.NewPengaduanRepository(),
+		hasilAIRepo:   repository.NewHasilAIRepository(),
 		unitRepo:      repository.NewUnitRepository(),
 		disposisiRepo: repository.NewDisposisiRepository(),
+		aiService:     NewAIService(),
 	}
 }
 
@@ -108,11 +113,42 @@ func (s *AdminService) ForwardToPimpinan(id uint64) error {
 		return err
 	}
 
-	if strings.ToLower(pengaduan.HasilAI.Urgensi) != strings.ToLower("Tinggi") {
+	if pengaduan.HasilAI == nil || strings.ToLower(pengaduan.HasilAI.Urgensi) != strings.ToLower("Tinggi") {
 		return errors.New("hanya pengaduan urgensi Tinggi yang diteruskan ke pimpinan")
 	}
 
 	return s.pengaduanRepo.UpdateStatus(id, "Diteruskan ke Pimpinan")
+}
+
+func (s *AdminService) ReanalyzeAI(id uint64) (*dto.ReanalyzeAIResponse, error) {
+	pengaduan, err := s.pengaduanRepo.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	analysis, err := s.aiService.Analyze(dto.AIRequest{Deskripsi: pengaduan.Deskripsi})
+	if err != nil {
+		log.Printf("retry analisis AI pengaduan %d gagal: %v", id, err)
+		return nil, err
+	}
+
+	hasil := &models.HasilAI{
+		PengaduanID:  pengaduan.ID,
+		SkorSentimen: analysis.Score,
+		Sentimen:     analysis.Sentimen,
+		Urgensi:      analysis.Urgensi,
+	}
+	if err := s.hasilAIRepo.UpsertByPengaduanID(hasil); err != nil {
+		return nil, err
+	}
+
+	return &dto.ReanalyzeAIResponse{
+		PengaduanID:  pengaduan.ID,
+		SkorSentimen: analysis.Score,
+		Sentimen:     analysis.Sentimen,
+		Urgensi:      analysis.Urgensi,
+		AIStatus:     "success",
+	}, nil
 }
 
 func (s *AdminService) GetUnits() ([]models.Unit, error) {

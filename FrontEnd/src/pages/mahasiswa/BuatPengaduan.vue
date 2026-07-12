@@ -57,7 +57,7 @@
             />
           </div>
           <div class="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-            Setelah dikirim, sistem AI akan mengisi kategori prediksi, sentimen, urgensi, dan status pada detail aduan.
+            Setelah dikirim, sistem AI akan menganalisis deskripsi untuk skor sentimen, sentimen, urgensi, dan status analisis.
           </div>
         </div>
         <button

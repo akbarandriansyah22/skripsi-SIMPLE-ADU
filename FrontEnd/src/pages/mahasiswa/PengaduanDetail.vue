@@ -45,9 +45,14 @@
         <div class="rounded-xl bg-white p-6 shadow-card ring-1 ring-slate-200/50">
           <p class="text-sm font-bold text-slate-950">Ringkasan AI</p>
           <dl class="mt-5 space-y-3 text-sm">
-            <div><dt class="font-semibold text-slate-900">Kategori</dt><dd class="text-slate-600">{{ detail?.kategori?.nama || detail?.kategori_prediksi || detail?.kategori || "-" }}</dd></div>
-            <div><dt class="font-semibold text-slate-900">Sentimen</dt><dd class="text-slate-600">{{ detail?.sentimen || "-" }}</dd></div>
-            <div><dt class="font-semibold text-slate-900">Urgensi</dt><dd class="text-slate-600">{{ detail?.urgensi || "-" }}</dd></div>
+            <div><dt class="font-semibold text-slate-900">Kategori</dt><dd class="text-slate-600">{{ detail?.kategori?.nama || detail?.kategori || "-" }}</dd></div>
+            <div><dt class="font-semibold text-slate-900">Status AI</dt><dd class="text-slate-600">{{ detail?.ai_status || "pending" }}</dd></div>
+            <template v-if="detail?.ai_status === 'success'">
+              <div><dt class="font-semibold text-slate-900">Skor Sentimen</dt><dd class="text-slate-600">{{ detail?.skor_sentimen }}</dd></div>
+              <div><dt class="font-semibold text-slate-900">Sentimen</dt><dd class="text-slate-600">{{ detail?.sentimen || "-" }}</dd></div>
+              <div><dt class="font-semibold text-slate-900">Urgensi</dt><dd class="text-slate-600">{{ detail?.urgensi || "-" }}</dd></div>
+            </template>
+            <div v-else><dd class="text-slate-600">Analisis AI sedang menunggu pemrosesan.</dd></div>
           </dl>
         </div>
       </aside>

@@ -39,7 +39,12 @@ func (c *PengaduanController) Create(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, gin.H{"success": true, "message": "Pengaduan berhasil dibuat", "data": result})
+	message := "Pengaduan berhasil dibuat"
+	if result.AIStatus == "pending" {
+		message = "Pengaduan berhasil dibuat, analisis AI menunggu pemrosesan"
+	}
+
+	ctx.JSON(http.StatusCreated, gin.H{"success": true, "message": message, "data": result})
 }
 
 func bindCreatePengaduanRequest(ctx *gin.Context) (dto.CreatePengaduanRequest, bool) {

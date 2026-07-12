@@ -2,7 +2,7 @@ package services
 
 import (
 	"errors"
-	"math"
+	"log"
 	"strings"
 	"time"
 
@@ -11,8 +11,6 @@ import (
 	"backend/models"
 	"backend/repository"
 	"backend/utils"
-
-	"gorm.io/gorm"
 )
 
 var ErrForbidden = errors.New("akses ditolak")
@@ -50,37 +48,36 @@ func (s *PengaduanService) Create(userID uint, req dto.CreatePengaduanRequest) (
 		Status:     "Menunggu Verifikasi",
 	}
 
-	if err := config.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(pengaduan).Error; err != nil {
-			return err
-		}
-
-		analysis, err := s.aiService.Analyze(dto.AIRequest{
-			Judul:     req.Judul,
-			Deskripsi: req.Deskripsi,
-		})
-		if err != nil {
-			return err
-		}
-
-		hasilAI := &models.HasilAI{
-			PengaduanID:  pengaduan.ID,
-			Sentimen:     analysis.Sentimen,
-			SkorSentimen: analysis.Score,
-			Urgensi:      analysis.Urgensi,
-		}
-
-		if err := tx.Create(hasilAI).Error; err != nil {
-			return err
-		}
-
-		pengaduan.HasilAI = *hasilAI
-		return nil
-	}); err != nil {
+	if err := config.DB.Create(pengaduan).Error; err != nil {
 		return nil, err
 	}
 
+	if err := s.analyzeAndAttach(pengaduan); err != nil {
+		log.Printf("analisis AI pengaduan %d tertunda: %v", pengaduan.ID, err)
+	}
+
 	return mapPengaduanResponse(pengaduan), nil
+}
+
+func (s *PengaduanService) analyzeAndAttach(pengaduan *models.Pengaduan) error {
+	analysis, err := s.aiService.Analyze(dto.AIRequest{Deskripsi: pengaduan.Deskripsi})
+	if err != nil {
+		return err
+	}
+
+	hasilAI := &models.HasilAI{
+		PengaduanID:  pengaduan.ID,
+		Sentimen:     analysis.Sentimen,
+		SkorSentimen: analysis.Score,
+		Urgensi:      analysis.Urgensi,
+	}
+
+	if err := s.hasilAIRepo.UpsertByPengaduanID(hasilAI); err != nil {
+		return err
+	}
+
+	pengaduan.HasilAI = hasilAI
+	return nil
 }
 
 func (s *PengaduanService) GetByID(id uint64) (*dto.PengaduanResponse, error) {
@@ -252,10 +249,16 @@ func mapPengaduanResponse(pengaduan *models.Pengaduan) *dto.PengaduanResponse {
 		Deskripsi:  pengaduan.Deskripsi,
 		Lampiran:   pengaduan.Lampiran,
 		Status:     pengaduan.Status,
-		Sentimen:   pengaduan.HasilAI.Sentimen,
-		Urgensi:    pengaduan.HasilAI.Urgensi,
-		Confidence: scoreToConfidence(pengaduan.HasilAI.SkorSentimen),
+		AIStatus:   "pending",
 		CreatedAt:  pengaduan.CreatedAt,
+	}
+
+	if pengaduan.HasilAI != nil {
+		skor := pengaduan.HasilAI.SkorSentimen
+		response.SkorSentimen = &skor
+		response.Sentimen = pengaduan.HasilAI.Sentimen
+		response.Urgensi = pengaduan.HasilAI.Urgensi
+		response.AIStatus = "success"
 	}
 
 	if pengaduan.User.ID != 0 {
@@ -292,23 +295,6 @@ func mapPengaduanResponse(pengaduan *models.Pengaduan) *dto.PengaduanResponse {
 	}
 
 	return response
-}
-
-func confidenceToScore(confidence float64) int {
-	if confidence <= 0 {
-		return 0
-	}
-	if confidence <= 1 {
-		return int(math.Round(confidence * 100))
-	}
-	return int(math.Round(confidence))
-}
-
-func scoreToConfidence(score int) float64 {
-	if score <= 0 {
-		return 0
-	}
-	return float64(score) / 100
 }
 
 func isMahasiswaRole(role string) bool {

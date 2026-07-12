@@ -19,6 +19,7 @@ func AdminRoutes(r *gin.Engine) {
 		api.PATCH("/pengaduan/:id/status", admin.UpdateStatus)
 		api.PATCH("/pengaduan/:id/unit", admin.AssignUnit)
 		api.PATCH("/pengaduan/:id/forward", admin.ForwardToPimpinan)
+		api.POST("/pengaduan/:id/reanalyze", admin.ReanalyzeAI)
 		api.GET("/unit", admin.GetUnits)
 	}
 }

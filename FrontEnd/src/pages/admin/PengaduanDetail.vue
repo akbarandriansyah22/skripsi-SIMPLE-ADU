@@ -37,6 +37,14 @@
             <div
               class="rounded-lg border border-slate-200 bg-slate-50 p-5 hover:bg-slate-100 transition"
             >
+              <p class="text-sm font-bold text-slate-950">Skor Sentimen</p>
+              <p class="mt-2 text-sm text-slate-700">
+                {{ detail?.ai_status === "success" ? detail?.skor_sentimen : "—" }}
+              </p>
+            </div>
+            <div
+              class="rounded-lg border border-slate-200 bg-slate-50 p-5 hover:bg-slate-100 transition"
+            >
               <p class="text-sm font-bold text-slate-950">Sentimen</p>
               <p class="mt-2 text-sm text-slate-700">
                 {{ detail?.sentimen || "—" }}
@@ -50,6 +58,15 @@
                 {{ detail?.urgensi || "—" }}
               </p>
             </div>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-5">
+            <p class="text-sm font-bold text-slate-950">Status AI</p>
+            <p class="mt-2 text-sm text-slate-700">
+              {{ detail?.ai_status || "pending" }}
+            </p>
+            <p v-if="detail?.ai_status !== 'success'" class="mt-2 text-sm text-slate-600">
+              Analisis AI sedang menunggu pemrosesan.
+            </p>
           </div>
           <div class="rounded-lg border border-slate-200 bg-slate-50 p-5">
             <p class="text-sm font-bold text-slate-950">Bukti Pendukung</p>
@@ -204,6 +221,13 @@
             >
               Teruskan ke Pimpinan
             </button>
+            <button
+              @click="handleReanalyze()"
+              :disabled="reanalyzing"
+              class="w-full rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 active:bg-indigo-800 shadow-soft disabled:opacity-50"
+            >
+              {{ reanalyzing ? "Menganalisis..." : "Analisis Ulang AI" }}
+            </button>
           </div>
         </div>
       </div>
@@ -230,6 +254,7 @@ const statusForm = ref("Diproses");
 const unitForm = ref(0);
 const responseText = ref("");
 const sendingResponse = ref(false);
+const reanalyzing = ref(false);
 const responses = computed(() => detail.value?.respon_pengaduan || detail.value?.responses || detail.value?.respon || detail.value?.comments || []);
 
 function statusBadgeClass(status) {
@@ -299,6 +324,20 @@ async function handleForward() {
     load();
   } catch (err) {
     toast.add({ type: "danger", message: "Gagal meneruskan pengaduan." });
+  }
+}
+
+async function handleReanalyze() {
+  if (!detail.value) return;
+  reanalyzing.value = true;
+  try {
+    await adminService.reanalyzeAI(detail.value.id);
+    toast.add({ type: "success", message: "Analisis AI berhasil diperbarui." });
+    load();
+  } catch (err) {
+    toast.add({ type: "danger", message: "Gagal memperbarui analisis AI." });
+  } finally {
+    reanalyzing.value = false;
   }
 }
 
