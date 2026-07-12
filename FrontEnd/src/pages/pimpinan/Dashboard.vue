@@ -8,7 +8,7 @@
           Validasi Anda
         </p>
         <p class="mt-4 text-4xl font-bold text-slate-950">
-          {{ stats.value?.validasi_count || stats.value?.pending || "-" }}
+          {{ stats?.belum_disposisi || stats?.validasi_count || stats?.pending || 0 }}
         </p>
         <p class="mt-3 text-sm text-slate-600 leading-relaxed">
           Pengaduan yang menunggu keputusan resmi Anda.
@@ -21,7 +21,7 @@
           Urgensi Tinggi
         </p>
         <p class="mt-4 text-4xl font-bold text-slate-950">
-          {{ stats.value?.urgent_count || stats.value?.urgensi || "-" }}
+          {{ stats?.total_urgensi_tinggi || stats?.urgent_count || stats?.urgensi || 0 }}
         </p>
         <p class="mt-3 text-sm text-slate-600 leading-relaxed">
           Laporan prioritas yang perlu tindak lanjut cepat.
@@ -34,7 +34,7 @@
           Disposisi
         </p>
         <p class="mt-4 text-4xl font-bold text-slate-950">
-          {{ stats.value?.disposisi_count || stats.value?.disposisi || "-" }}
+          {{ stats?.sudah_disposisi || stats?.disposisi_count || stats?.disposisi || 0 }}
         </p>
         <p class="mt-3 text-sm text-slate-600 leading-relaxed">
           Instruksi yang telah dikirim ke unit terkait.
@@ -47,21 +47,22 @@
           <p class="text-sm font-bold text-slate-950">
             Pengaduan Urgensi Tinggi
           </p>
-          <button
+          <router-link
+            to="/pimpinan/validasi"
             class="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
           >
             Lihat Semua
-          </button>
+          </router-link>
         </div>
         <div class="mt-6 space-y-4">
-          <template v-if="stats.value?.urgent?.length">
+          <template v-if="urgent.length">
             <div
-              v-for="r in stats.value.urgent"
+              v-for="r in urgent"
               :key="r.id"
               class="rounded-lg border border-slate-200 bg-slate-50 p-4 hover:bg-slate-100 transition"
             >
               <p class="font-semibold text-slate-950">
-                {{ r.kode || r.judul || r.title }}
+                {{ r.kode_tiket || r.kode || r.judul || r.title }}
               </p>
               <p class="mt-2 text-sm text-slate-600">
                 {{ r.judul || r.deskripsi || r.summary }}
@@ -87,11 +88,12 @@
           <p>Review jawaban resmi yang belum dipublikasikan.</p>
           <p>Pastikan keputusan sesuai prosedur fakultas.</p>
         </div>
-        <button
+        <router-link
+          to="/pimpinan/validasi"
           class="mt-6 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 active:bg-emerald-800 shadow-soft w-full"
         >
           Validasi Sekarang
-        </button>
+        </router-link>
       </div>
     </section>
   </PimpinanLayout>
@@ -99,12 +101,14 @@
 
 <script setup>
 import { ref, onMounted } from "vue";
+import PimpinanLayout from "../../layouts/PimpinanLayout.vue";
 import pimpinanService from "../../services/pimpinan.service";
 import { useToastStore } from "../../stores/toast";
 
 const loading = ref(true);
 const error = ref("");
 const stats = ref({});
+const urgent = ref([]);
 const toast = useToastStore();
 
 const load = async () => {
@@ -112,7 +116,9 @@ const load = async () => {
   error.value = "";
   try {
     const res = await pimpinanService.dashboard();
-    stats.value = res.data || {};
+    stats.value = res.data?.data || res.data || {};
+    const urgentRes = await pimpinanService.urgentReports();
+    urgent.value = urgentRes.data?.data || urgentRes.data || [];
   } catch (err) {
     error.value = err?.message || "Server error";
     toast.add({ type: "danger", message: error.value });

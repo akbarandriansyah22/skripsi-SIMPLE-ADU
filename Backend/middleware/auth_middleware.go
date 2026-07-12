@@ -83,7 +83,7 @@ func RoleMiddleware(allowedRoles ...string) gin.HandlerFunc {
 
 func isValidRole(role string) bool {
 	switch strings.ToLower(role) {
-	case "mahasiswa", "admin", "admin_fakultas", "admin fakultas", "pimpinan", "pimpinan_fakultas", "pimpinan fakultas":
+	case "mahasiswa", "petugas", "admin", "admin_fakultas", "admin fakultas", "pimpinan", "pimpinan_fakultas", "pimpinan fakultas":
 		return true
 	default:
 		return false

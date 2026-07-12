@@ -18,23 +18,29 @@
         <nav class="space-y-1">
           <router-link
             class="block rounded-lg px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
+            active-class="bg-blue-950 text-white hover:bg-blue-950 hover:text-white"
             to="/pimpinan/dashboard"
             >Dashboard</router-link
           >
           <router-link
             class="block rounded-lg px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
+            active-class="bg-blue-950 text-white hover:bg-blue-950 hover:text-white"
             to="/pimpinan/validasi"
             >Validasi Aduan</router-link
           >
           <router-link
             class="block rounded-lg px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
+            active-class="bg-blue-950 text-white hover:bg-blue-950 hover:text-white"
             to="/pimpinan/disposisi"
             >Disposisi</router-link
           >
-          <router-link
-            class="block rounded-lg px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
-            to="/auth/login"
-            >Keluar</router-link
+          <button
+            type="button"
+            class="block w-full rounded-lg px-4 py-3 text-left text-sm font-medium text-red-600 transition hover:bg-red-50 hover:text-red-700"
+            @click="handleLogout"
+          >
+            Keluar
+          </button>
           >
         </nav>
       </aside>
@@ -50,11 +56,12 @@
             </p>
             <h1 class="text-xl font-bold text-slate-950">Dashboard Pimpinan</h1>
           </div>
-          <button
+          <router-link
             class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 active:bg-blue-800 shadow-soft"
+            to="/pimpinan/validasi"
           >
-            Update Status
-          </button>
+            Validasi
+          </router-link>
         </div>
         <slot />
       </main>
@@ -62,4 +69,15 @@
   </div>
 </template>
 
-<script setup></script>
+<script setup>
+import { useRouter } from "vue-router";
+import { useAuthStore } from "../stores/auth";
+
+const router = useRouter();
+const auth = useAuthStore();
+
+const handleLogout = () => {
+  auth.logout();
+  router.replace("/auth/login");
+};
+</script>

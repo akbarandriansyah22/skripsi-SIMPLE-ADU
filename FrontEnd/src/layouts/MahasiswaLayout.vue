@@ -18,28 +18,41 @@
         <nav class="space-y-1">
           <router-link
             class="block rounded-lg px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
+            active-class="bg-blue-950 text-white hover:bg-blue-950 hover:text-white"
             to="/mahasiswa/dashboard"
             >Dashboard</router-link
           >
           <router-link
             class="block rounded-lg px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
+            active-class="bg-blue-950 text-white hover:bg-blue-950 hover:text-white"
             to="/mahasiswa/pengaduan"
             >Pengaduan Saya</router-link
           >
           <router-link
             class="block rounded-lg px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
+            active-class="bg-blue-950 text-white hover:bg-blue-950 hover:text-white"
             to="/mahasiswa/kirim"
             >Kirim Aduan</router-link
           >
           <router-link
             class="block rounded-lg px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
+            active-class="bg-blue-950 text-white hover:bg-blue-950 hover:text-white"
             to="/mahasiswa/notifikasi"
             >Notifikasi</router-link
           >
           <router-link
             class="block rounded-lg px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
-            to="/auth/login"
-            >Keluar</router-link
+            active-class="bg-blue-950 text-white hover:bg-blue-950 hover:text-white"
+            to="/mahasiswa/profil"
+            >Profil</router-link
+          >
+          <button
+            type="button"
+            class="block w-full rounded-lg px-4 py-3 text-left text-sm font-medium text-red-600 transition hover:bg-red-50 hover:text-red-700"
+            @click="handleLogout"
+          >
+            Keluar
+          </button>
           >
         </nav>
       </aside>
@@ -60,10 +73,10 @@
                 Ringkasan Pengaduan
               </h1>
             </div>
-            <a
+            <router-link
               class="inline-flex items-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 active:bg-emerald-800 shadow-soft"
-              href="/mahasiswa/kirim"
-              >Buat Aduan</a
+              to="/mahasiswa/kirim"
+              >Buat Aduan</router-link
             >
           </div>
         </div>
@@ -73,4 +86,15 @@
   </div>
 </template>
 
-<script setup></script>
+<script setup>
+import { useRouter } from "vue-router";
+import { useAuthStore } from "../stores/auth";
+
+const router = useRouter();
+const auth = useAuthStore();
+
+const handleLogout = () => {
+  auth.logout();
+  router.replace("/auth/login");
+};
+</script>

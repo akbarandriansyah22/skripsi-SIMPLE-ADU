@@ -37,6 +37,26 @@ func (r *AuthRepository) GetUserByEmail(email string) (*models.User, error) {
 }
 
 // =========================
+// GET USER BY EMAIL OR NIM
+// =========================
+
+func (r *AuthRepository) GetUserByEmailOrNIM(identifier string) (*models.User, error) {
+
+	var user models.User
+
+	err := r.DB.
+		Joins("LEFT JOIN mahasiswa ON mahasiswa.user_id = users.id").
+		Where("users.email = ? OR mahasiswa.nim = ?", identifier, identifier).
+		First(&user).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+// =========================
 // REGISTER MAHASISWA
 // =========================
 

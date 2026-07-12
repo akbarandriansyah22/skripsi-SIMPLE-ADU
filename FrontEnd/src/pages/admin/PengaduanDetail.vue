@@ -12,10 +12,10 @@
               Detail Tiket
             </p>
             <h2 class="mt-2 text-2xl font-bold text-slate-950">
-              {{ detail?.kode || "ADU-" + detail?.id || "—" }}
+              {{ detail?.kode_tiket || detail?.kode || "ADU-" + detail?.id || "—" }}
             </h2>
             <p class="mt-1 text-sm text-slate-600">
-              {{ detail?.unit_name || detail?.unit || "—" }}
+              {{ detail?.unit?.nama_unit || detail?.unit_name || detail?.unit || "—" }}
             </p>
           </div>
           <span
@@ -81,17 +81,17 @@
           <div class="rounded-lg border border-slate-200 bg-slate-50 p-5">
             <p class="text-sm font-bold text-slate-950">Riwayat Komunikasi</p>
             <div class="mt-4 space-y-3">
-              <template v-if="detail?.comments?.length">
+              <template v-if="responses.length">
                 <div
-                  v-for="c in detail.comments"
+                  v-for="c in responses"
                   :key="c.id"
                   class="rounded-lg bg-white p-4 border border-slate-200"
                 >
                   <p class="text-sm font-semibold text-slate-950">
-                    {{ c.author_name || c.author || c.user?.nama || "—" }}
+                    {{ c.author_name || c.author || c.user?.nama_lengkap || c.user?.nama || "—" }}
                   </p>
                   <p class="mt-2 text-sm text-slate-700">
-                    {{ c.message || c.body || c.text }}
+                    {{ c.pesan || c.message || c.body || c.text }}
                   </p>
                   <p class="mt-2 text-xs text-slate-500">
                     {{ formatDate(c.created_at) }}
@@ -106,6 +106,22 @@
               </div>
             </div>
           </div>
+          <form class="rounded-lg border border-slate-200 bg-white p-5" @submit.prevent="sendResponse">
+            <label class="text-sm font-bold text-slate-950">Jawaban Admin</label>
+            <textarea
+              v-model="responseText"
+              rows="4"
+              placeholder="Tulis balasan untuk mahasiswa..."
+              class="mt-3 w-full rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-900 shadow-soft"
+            ></textarea>
+            <button
+              type="submit"
+              :disabled="sendingResponse || !responseText.trim()"
+              class="mt-3 rounded-lg bg-blue-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-900 disabled:opacity-50"
+            >
+              {{ sendingResponse ? "Mengirim..." : "Kirim Jawaban" }}
+            </button>
+          </form>
         </div>
       </div>
       <div class="space-y-6">
@@ -121,6 +137,7 @@
                   {{
                     detail?.pelapor?.nama ||
                     detail?.pelapor_name ||
+                    detail?.user?.nama_lengkap ||
                     detail?.user?.nama ||
                     "-"
                   }}
@@ -134,7 +151,7 @@
             <div class="grid gap-3 sm:grid-cols-2">
               <div>
                 <p class="font-semibold text-slate-900">Program Studi</p>
-                <p>{{ detail?.pelapor?.prodi || detail?.prodi || "-" }}</p>
+                <p>{{ detail?.pelapor?.prodi || detail?.program_studi || detail?.prodi || "-" }}</p>
               </div>
               <div>
                 <p class="font-semibold text-slate-900">Email</p>
@@ -150,17 +167,42 @@
         >
           <p class="text-sm font-bold text-slate-950">Aksi Admin</p>
           <div class="mt-5 space-y-4">
+            <select
+              v-model="statusForm"
+              class="w-full rounded-lg border border-slate-200 px-4 py-3 text-sm"
+            >
+              <option>Menunggu Verifikasi</option>
+              <option>Diproses</option>
+              <option>Selesai</option>
+              <option>Ditolak</option>
+            </select>
+            <button
+              @click="updateSelectedStatus()"
+              class="w-full rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 active:bg-emerald-800 shadow-soft"
+            >
+              Update Status
+            </button>
+            <select
+              v-model.number="unitForm"
+              class="w-full rounded-lg border border-slate-200 px-4 py-3 text-sm"
+            >
+              <option :value="0">Pilih unit tujuan</option>
+              <option v-for="unit in units" :key="unit.id" :value="unit.id">
+                {{ unit.nama_unit || unit.nama || unit.name }}
+              </option>
+            </select>
+            <button
+              @click="assignSelectedUnit()"
+              :disabled="!unitForm"
+              class="w-full rounded-lg bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-200 disabled:opacity-50"
+            >
+              Tetapkan Unit
+            </button>
             <button
               @click="handleForward()"
               class="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 active:bg-blue-800 shadow-soft"
             >
               Teruskan ke Pimpinan
-            </button>
-            <button
-              @click="markComplete()"
-              class="w-full rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 active:bg-emerald-800 shadow-soft"
-            >
-              Update Status
             </button>
           </div>
         </div>
@@ -170,9 +212,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { computed, ref, onMounted } from "vue";
 import { useRoute } from "vue-router";
+import AdminLayout from "../../layouts/AdminLayout.vue";
 import adminService from "../../services/admin.service";
+import pengaduanService from "../../services/pengaduan.service";
 
 const props = defineProps({ id: [String, Number] });
 const route = useRoute();
@@ -181,6 +225,12 @@ const id = props.id || route.params.id;
 const detail = ref(null);
 const loading = ref(true);
 const error = ref("");
+const units = ref([]);
+const statusForm = ref("Diproses");
+const unitForm = ref(0);
+const responseText = ref("");
+const sendingResponse = ref(false);
+const responses = computed(() => detail.value?.respon_pengaduan || detail.value?.responses || detail.value?.respon || detail.value?.comments || []);
 
 function statusBadgeClass(status) {
   if (!status)
@@ -213,7 +263,9 @@ const load = async () => {
   error.value = "";
   try {
     const res = await adminService.getPengaduanById(id);
-    detail.value = res.data || null;
+    detail.value = res.data?.data || res.data || null;
+    statusForm.value = detail.value?.status || "Diproses";
+    unitForm.value = detail.value?.unit_id || 0;
   } catch (err) {
     error.value = err?.message || "Server error";
     toast.add({ type: "danger", message: error.value });
@@ -223,6 +275,15 @@ const load = async () => {
 };
 
 onMounted(load);
+
+onMounted(async () => {
+  try {
+    const res = await adminService.getUnits();
+    units.value = res.data?.data || res.data || [];
+  } catch {
+    units.value = [];
+  }
+});
 
 import { useToastStore } from "../../stores/toast";
 const toast = useToastStore();
@@ -241,14 +302,40 @@ async function handleForward() {
   }
 }
 
-async function markComplete() {
+async function updateSelectedStatus() {
   if (!detail.value) return;
   try {
-    await adminService.updateStatus(detail.value.id, { status: "selesai" });
+    await adminService.updateStatus(detail.value.id, { status: statusForm.value });
     toast.add({ type: "success", message: "Status diperbarui." });
     load();
   } catch (err) {
     toast.add({ type: "danger", message: "Gagal memperbarui status." });
+  }
+}
+
+async function assignSelectedUnit() {
+  if (!detail.value || !unitForm.value) return;
+  try {
+    await adminService.assignUnit(detail.value.id, { unit_id: unitForm.value });
+    toast.add({ type: "success", message: "Unit berhasil ditetapkan." });
+    load();
+  } catch (err) {
+    toast.add({ type: "danger", message: "Gagal menetapkan unit." });
+  }
+}
+
+async function sendResponse() {
+  if (!detail.value || !responseText.value.trim()) return;
+  sendingResponse.value = true;
+  try {
+    await pengaduanService.addRespon(detail.value.id, { pesan: responseText.value });
+    toast.add({ type: "success", message: "Jawaban berhasil dikirim." });
+    responseText.value = "";
+    load();
+  } catch (err) {
+    toast.add({ type: "danger", message: "Gagal mengirim jawaban." });
+  } finally {
+    sendingResponse.value = false;
   }
 }
 </script>

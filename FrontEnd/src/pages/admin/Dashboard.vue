@@ -11,14 +11,14 @@
         </p>
         <p class="mt-4 text-2xl font-bold">
           {{
-            stats.value?.latest?.judul ||
-            stats.value?.latest?.title ||
+            stats?.latest?.judul ||
+            stats?.latest?.title ||
             "Tidak ada laporan terbaru"
           }}
         </p>
         <p class="mt-4 text-sm text-slate-300 leading-relaxed">
           {{
-            stats.value?.latest?.deskripsi || stats.value?.latest?.summary || ""
+            stats?.latest?.deskripsi || stats?.latest?.summary || ""
           }}
         </p>
       </div>
@@ -31,9 +31,9 @@
             <p class="text-sm text-slate-600">Manajemen Aduan</p>
             <p class="mt-2 text-2xl font-bold text-slate-950">
               {{
-                stats.value?.manajemen_count ||
-                stats.value?.total_pengaduan ||
-                stats.value?.total ||
+                stats?.manajemen_count ||
+                stats?.total_pengaduan ||
+                stats?.total ||
                 "-"
               }}
             </p>
@@ -42,8 +42,8 @@
             <p class="text-sm text-slate-600">Notifikasi</p>
             <p class="mt-2 text-2xl font-bold text-slate-950">
               {{
-                stats.value?.notifications_count ||
-                stats.value?.notif_count ||
+                stats?.notifications_count ||
+                stats?.notif_count ||
                 "-"
               }}
             </p>
@@ -55,14 +55,14 @@
           Riwayat Aduan
         </p>
         <div class="mt-4 space-y-4">
-          <template v-if="stats.value?.recent?.length">
+          <template v-if="stats?.recent?.length">
             <div
-              v-for="r in stats.value.recent"
+              v-for="r in stats.recent"
               :key="r.id"
               class="rounded-lg bg-slate-50 p-4 hover:bg-slate-100 transition"
             >
               <p class="font-semibold text-slate-950">
-                {{ r.title || r.kategori || r.unit || "—" }}
+                {{ r.title || r.kategori?.nama || r.kategori || r.unit?.nama_unit || r.unit || "—" }}
               </p>
               <p class="mt-2 text-sm text-slate-600">
                 {{ r.summary || r.judul || r.deskripsi || "" }}
@@ -84,6 +84,7 @@
 
 <script setup>
 import { ref, onMounted } from "vue";
+import AdminLayout from "../../layouts/AdminLayout.vue";
 import adminService from "../../services/admin.service";
 import { useToastStore } from "../../stores/toast";
 
@@ -97,7 +98,7 @@ const load = async () => {
   error.value = "";
   try {
     const res = await adminService.dashboard();
-    stats.value = res.data || {};
+    stats.value = res.data?.data || res.data || {};
   } catch (err) {
     error.value = err?.message || "Server error";
     toast.add({ type: "danger", message: error.value });

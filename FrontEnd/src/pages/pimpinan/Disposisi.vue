@@ -39,10 +39,10 @@
             class="rounded-lg border border-slate-200 bg-slate-50 p-5 hover:bg-slate-100 transition"
           >
             <p class="font-semibold text-slate-950">
-              {{ d.kode || "ADU-" + d.pengaduan_id || d.title }}
+              {{ d.kode_tiket || d.kode || "ADU-" + d.pengaduan_id || d.title }}
             </p>
             <p class="mt-2 text-sm text-slate-600">
-              {{ d.message || d.summary || "" }}
+              {{ d.catatan || d.message || d.summary || "" }}
             </p>
             <p class="mt-3 text-xs text-slate-500">
               {{ d.tanggal || d.created_at || "" }}
@@ -113,6 +113,7 @@
 
 <script setup>
 import { ref, onMounted } from "vue";
+import PimpinanLayout from "../../layouts/PimpinanLayout.vue";
 import Modal from "../../components/Modal.vue";
 import pimpinanService from "../../services/pimpinan.service";
 import { useToastStore } from "../../stores/toast";
@@ -131,7 +132,7 @@ const load = async () => {
   error.value = "";
   try {
     const res = await pimpinanService.myDisposisi();
-    disposisi.value = res.data || [];
+    disposisi.value = res.data?.data || res.data || [];
   } catch (err) {
     error.value = err?.message || "Server error";
   } finally {
@@ -158,7 +159,7 @@ async function submitDisposisi() {
 
   try {
     await pimpinanService.createDisposisi(form.value.pengaduanId, {
-      message: form.value.message,
+      catatan: form.value.message,
     });
     toast.add({ type: "success", message: "Disposisi ditambahkan." });
     showModal.value = false;

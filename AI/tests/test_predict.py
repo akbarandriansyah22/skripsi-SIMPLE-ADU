@@ -34,3 +34,13 @@ def test_predict_endpoint_empty_description() -> None:
             PredictRequest(deskripsi="")
         except ValidationError as exc:
             _raise_request_validation_error(exc)
+
+
+def test_predict_endpoint_fire_complaint_is_high_urgency() -> None:
+    """Pengaduan kebakaran harus masuk urgensi tinggi."""
+    payload = PredictRequest(
+        deskripsi="Terjadi kebakaran di laboratorium komputer dan asap sudah memenuhi ruangan."
+    )
+    data = predict(payload)
+
+    assert data["urgency"] == "Tinggi"

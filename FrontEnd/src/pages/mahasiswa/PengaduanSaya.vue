@@ -1,8 +1,6 @@
 <template>
   <MahasiswaLayout>
-    <section
-      class="rounded-xl bg-white p-6 shadow-card ring-1 ring-slate-200/50"
-    >
+    <section class="rounded-xl bg-white p-6 shadow-card ring-1 ring-slate-200/50">
       <div
         class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
       >
@@ -80,7 +78,7 @@
               class="hover:bg-slate-50 transition"
             >
               <td class="px-6 py-4 font-medium text-slate-900">
-                {{ p.kode || "ADU-" + p.id }}
+                {{ p.kode_tiket || p.kode || "ADU-" + p.id }}
               </td>
               <td class="px-6 py-4 text-slate-700">{{ p.judul }}</td>
               <td class="px-6 py-4">
@@ -109,6 +107,7 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import MahasiswaLayout from "../../layouts/MahasiswaLayout.vue";
 import pengaduanService from "../../services/pengaduan.service";
 import { useToastStore } from "../../stores/toast";
 
@@ -122,7 +121,7 @@ const toast = useToastStore();
 
 function openDetail(id) {
   if (!id) return;
-  router.push({ name: "AdminDetail", params: { id: String(id) } });
+  router.push({ name: "MahasiswaDetail", params: { id: String(id) } });
 }
 
 function statusBadgeClass(status) {
@@ -157,7 +156,7 @@ const load = async () => {
   error.value = "";
   try {
     const res = await pengaduanService.myPengaduan();
-    pengaduans.value = res.data || [];
+    pengaduans.value = res.data?.data || res.data || [];
   } catch (err) {
     error.value = err?.message || "Server error";
     toast.add({ type: "danger", message: error.value });

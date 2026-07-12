@@ -11,7 +11,7 @@ func AdminRoutes(r *gin.Engine) {
 	admin := controller.NewAdminController()
 
 	api := r.Group("/api/admin")
-	api.Use(middleware.AuthMiddleware(), middleware.RoleMiddleware("admin", "admin_fakultas", "Admin Fakultas"))
+	api.Use(middleware.AuthMiddleware(), middleware.RoleMiddleware("petugas", "admin", "admin_fakultas", "Admin Fakultas"))
 	{
 		api.GET("/dashboard", admin.Dashboard)
 		api.GET("/pengaduan", admin.GetAllPengaduan)

@@ -1,5 +1,4 @@
 import { defineStore } from 'pinia'
-import { useRouter } from 'vue-router'
 import authService from '../services/auth.service'
 
 export const useAuthStore = defineStore('auth', {
@@ -11,17 +10,21 @@ export const useAuthStore = defineStore('auth', {
   }),
   getters: {
     isAuthenticated: (state) => !!state.token,
-    isMahasiswa: (state) => state.role === 'mahasiswa',
-    isAdmin: (state) => state.role.startsWith('admin'),
-    isPimpinan: (state) => state.role.startsWith('pimpinan'),
+    normalizedRole: (state) => String(state.role || '').toLowerCase().replace(/\s+/g, '_'),
+    isMahasiswa: (state) => String(state.role || '').toLowerCase() === 'mahasiswa',
+    isAdmin: (state) => {
+      const role = String(state.role || '').toLowerCase().replace(/\s+/g, '_')
+      return role === 'petugas' || role.startsWith('admin')
+    },
+    isPimpinan: (state) => String(state.role || '').toLowerCase().replace(/\s+/g, '_').startsWith('pimpinan'),
   },
   actions: {
     async login(credentials) {
       this.status = 'loading'
       const response = await authService.login(credentials)
       this.token = response.data.token
-      this.role = response.data.role
       this.user = response.data.user
+      this.role = this.user?.role || ''
       localStorage.setItem('simpelToken', this.token)
       localStorage.setItem('simpelRole', this.role)
       localStorage.setItem('simpelUser', JSON.stringify(this.user))
@@ -42,7 +45,11 @@ export const useAuthStore = defineStore('auth', {
       const user = localStorage.getItem('simpelUser')
       this.token = token || ''
       this.role = role || ''
-      this.user = user ? JSON.parse(user) : null
+      try {
+        this.user = user ? JSON.parse(user) : null
+      } catch {
+        this.user = null
+      }
     },
   },
 })

@@ -119,4 +119,6 @@
   </MahasiswaLayout>
 </template>
 
-<script setup></script>
+<script setup>
+import MahasiswaLayout from "../../layouts/MahasiswaLayout.vue";
+</script>

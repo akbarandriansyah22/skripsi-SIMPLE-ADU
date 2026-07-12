@@ -74,6 +74,7 @@
 <script setup>
 import { ref } from "vue";
 import { useRouter } from "vue-router";
+import AuthLayout from "../../layouts/AuthLayout.vue";
 import { useAuthStore } from "../../stores/auth";
 import { useToastStore } from "../../stores/toast";
 

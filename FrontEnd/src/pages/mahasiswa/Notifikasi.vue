@@ -52,7 +52,7 @@
               {{ item.message || item.body || item.content }}
             </p>
             <div
-              v-if="!item.read_at"
+              v-if="!item.read_at && !item.is_read"
               class="mt-2 inline-block rounded-full bg-blue-100 text-blue-700 px-2 py-1 text-xs font-semibold"
             >
               Baru
@@ -67,6 +67,7 @@
 
 <script setup>
 import { ref, onMounted } from "vue";
+import MahasiswaLayout from "../../layouts/MahasiswaLayout.vue";
 import notifikasiService from "../../services/notifikasi.service";
 import { useToastStore } from "../../stores/toast";
 import { useRouter } from "vue-router";
@@ -82,7 +83,7 @@ const load = async () => {
   error.value = "";
   try {
     const res = await notifikasiService.mine();
-    notifications.value = res.data || [];
+    notifications.value = res.data?.data || res.data || [];
   } catch (err) {
     error.value = err?.message || "Server error";
     toast.add({ type: "danger", message: "Gagal memuat notifikasi." });
@@ -95,10 +96,11 @@ onMounted(load);
 
 const openNotification = async (item) => {
   try {
-    if (!item.read_at) {
+    if (!item.read_at && !item.is_read) {
       await notifikasiService.markAsRead(item.id);
       // optimistic update
       item.read_at = new Date().toISOString();
+      item.is_read = true;
     }
 
     // Try to resolve related pengaduan id from common fields
@@ -108,8 +110,7 @@ const openNotification = async (item) => {
       (item.data && item.data.pengaduan_id) ||
       (item.meta && item.meta.pengaduan_id);
     if (pengaduanId) {
-      // open the detail page (admin detail route exists and shows detail page)
-      router.push({ name: "AdminDetail", params: { id: String(pengaduanId) } });
+      router.push({ name: "MahasiswaDetail", params: { id: String(pengaduanId) } });
     }
   } catch (err) {
     toast.add({ type: "danger", message: "Gagal membuka notifikasi." });
@@ -118,9 +119,12 @@ const openNotification = async (item) => {
 
 const markAllRead = async () => {
   try {
-    const unread = notifications.value.filter((n) => !n.read_at);
+    const unread = notifications.value.filter((n) => !n.read_at && !n.is_read);
     await Promise.all(unread.map((n) => notifikasiService.markAsRead(n.id)));
-    unread.forEach((n) => (n.read_at = new Date().toISOString()));
+    unread.forEach((n) => {
+      n.read_at = new Date().toISOString();
+      n.is_read = true;
+    });
   } catch (err) {
     toast.add({ type: "danger", message: "Gagal menandai notifikasi." });
   }

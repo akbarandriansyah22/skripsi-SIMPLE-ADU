@@ -35,7 +35,7 @@
                       : 'bg-slate-100 text-slate-700 hover:bg-slate-200',
                   ]"
                 >
-                  {{ item.kode || "ADU-" + item.id }}
+                  {{ item.kode_tiket || item.kode || "ADU-" + item.id }}
                 </button>
               </div>
             </template>
@@ -49,7 +49,7 @@
             <p class="text-sm font-bold text-slate-950">
               ID:
               {{
-                selected?.kode || (selected?.id ? "ADU-" + selected.id : "-")
+                selected?.kode_tiket || selected?.kode || (selected?.id ? "ADU-" + selected.id : "-")
               }}
             </p>
             <p class="mt-3 text-slate-700 leading-relaxed">
@@ -83,13 +83,14 @@
             <p class="mt-3 text-sm text-slate-700">
               {{
                 selected?.pelapor_name ||
+                selected?.user?.nama_lengkap ||
                 selected?.mahasiswa?.nama ||
                 "Anonim (Mahasiswa FT)"
               }}
             </p>
             <p class="mt-2 text-xs text-slate-500">
               {{
-                selected?.unit || selected?.kategori || "Terverifikasi Admin"
+                selected?.unit?.nama_unit || selected?.unit || selected?.kategori?.nama || selected?.kategori || "Terverifikasi Admin"
               }}
             </p>
           </div>
@@ -135,6 +136,7 @@
 
 <script setup>
 import { ref, onMounted } from "vue";
+import PimpinanLayout from "../../layouts/PimpinanLayout.vue";
 import pimpinanService from "../../services/pimpinan.service";
 import { useToastStore } from "../../stores/toast";
 
@@ -150,7 +152,7 @@ const load = async () => {
   error.value = "";
   try {
     const res = await pimpinanService.urgentReports();
-    urgent.value = res.data || [];
+    urgent.value = res.data?.data || res.data || [];
     selected.value = urgent.value[0] || null;
   } catch (err) {
     error.value = err?.message || "Server error";
@@ -174,8 +176,7 @@ async function handleReturn() {
   }
   try {
     await pimpinanService.createDisposisi(selected.value.id, {
-      message: answer.value,
-      action: "return",
+      catatan: answer.value,
     });
     toast.add({ type: "success", message: "Dikembalikan ke admin." });
     answer.value = "";
@@ -199,8 +200,7 @@ async function handlePublish() {
   }
   try {
     await pimpinanService.createDisposisi(selected.value.id, {
-      message: answer.value,
-      publish: true,
+      catatan: answer.value,
     });
     toast.add({ type: "success", message: "Validasi dan publikasi berhasil." });
     answer.value = "";

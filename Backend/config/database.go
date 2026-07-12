@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"backend/models"
+	"backend/seed"
 
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
@@ -37,6 +38,10 @@ func ConnectDatabase() {
 
 	if err := autoMigrate(); err != nil {
 		log.Fatalf("AutoMigrate gagal: %v", err)
+	}
+
+	if err := seed.SeedDemoUsers(DB); err != nil {
+		log.Fatalf("Seeder demo user gagal: %v", err)
 	}
 }
 

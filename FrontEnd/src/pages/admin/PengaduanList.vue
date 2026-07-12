@@ -18,6 +18,27 @@
           Ekspor Laporan
         </button>
       </div>
+      <div class="mt-6 grid gap-3 md:grid-cols-4">
+        <input
+          v-model="filters.search"
+          type="search"
+          placeholder="Cari ID, nama, judul..."
+          class="rounded-lg border border-slate-200 px-4 py-3 text-sm"
+        />
+        <select v-model="filters.status" class="rounded-lg border border-slate-200 px-4 py-3 text-sm">
+          <option value="">Semua Status</option>
+          <option v-for="status in statusOptions" :key="status" :value="status">{{ status }}</option>
+        </select>
+        <select v-model="filters.kategori" class="rounded-lg border border-slate-200 px-4 py-3 text-sm">
+          <option value="">Semua Kategori</option>
+          <option v-for="kategori in kategoriOptions" :key="kategori" :value="kategori">{{ kategori }}</option>
+        </select>
+        <select v-model="sortBy" class="rounded-lg border border-slate-200 px-4 py-3 text-sm">
+          <option value="newest">Terbaru</option>
+          <option value="oldest">Terlama</option>
+          <option value="title">Judul A-Z</option>
+        </select>
+      </div>
       <div class="mt-6 overflow-hidden rounded-lg border border-slate-200">
         <table
           class="min-w-full divide-y divide-slate-200 text-left text-sm text-slate-700"
@@ -72,25 +93,25 @@
                 Gagal memuat data: {{ error }}
               </td>
             </tr>
-            <tr v-else-if="!pengaduans.length" class="">
+            <tr v-else-if="!filteredPengaduans.length" class="">
               <td colspan="7" class="px-6 py-8 text-center text-slate-500">
                 Tidak ada aduan.
               </td>
             </tr>
             <tr
               v-else
-              v-for="p in pengaduans"
+              v-for="p in pagedPengaduans"
               :key="p.id"
               class="hover:bg-slate-50 transition"
             >
               <td class="px-6 py-4 font-medium text-slate-900">
-                {{ p.kode || "ADU-" + p.id }}
+                {{ p.kode_tiket || p.kode || "ADU-" + p.id }}
               </td>
               <td class="px-6 py-4 text-slate-700">{{ p.judul }}</td>
               <td class="px-6 py-4 text-slate-600">
-                {{ p.pelapor?.nama || p.pelapor_name || p.user?.nama || "-" }}
+                {{ p.pelapor?.nama || p.pelapor_name || p.user?.nama_lengkap || p.user?.nama || "-" }}
               </td>
-              <td class="px-6 py-4 text-slate-600">{{ p.kategori || "-" }}</td>
+              <td class="px-6 py-4 text-slate-600">{{ p.kategori?.nama || p.kategori_prediksi || p.kategori || "-" }}</td>
               <td class="px-6 py-4">
                 <span :class="statusBadgeClass(p.status)">{{
                   p.status || "-"
@@ -110,20 +131,61 @@
           </tbody>
         </table>
       </div>
-      <p class="mt-4 text-sm text-slate-600">
-        Menampilkan 1 - 10 dari 45 aduan
-      </p>
+      <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p class="text-sm text-slate-600">
+          Menampilkan {{ pagedPengaduans.length }} dari {{ filteredPengaduans.length }} aduan
+        </p>
+        <div class="flex items-center gap-2">
+          <button :disabled="page === 1" @click="page--" class="rounded-lg bg-slate-100 px-3 py-2 text-sm disabled:opacity-40">Sebelumnya</button>
+          <span class="rounded-lg bg-blue-950 px-3 py-2 text-sm font-semibold text-white">{{ page }}</span>
+          <button :disabled="page >= pageCount" @click="page++" class="rounded-lg bg-slate-100 px-3 py-2 text-sm disabled:opacity-40">Berikutnya</button>
+        </div>
+      </div>
     </section>
   </AdminLayout>
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { computed, ref, onMounted, watch } from "vue";
+import AdminLayout from "../../layouts/AdminLayout.vue";
 import adminService from "../../services/admin.service";
 
 const pengaduans = ref([]);
 const loading = ref(true);
 const error = ref("");
+const page = ref(1);
+const perPage = 10;
+const sortBy = ref("newest");
+const filters = ref({ search: "", status: "", kategori: "" });
+
+const statusOptions = computed(() => uniqueValues("status"));
+const kategoriOptions = computed(() => uniqueValues("kategori"));
+
+const uniqueValues = (key) =>
+  [...new Set(pengaduans.value.map((item) => key === "kategori" ? (item?.kategori?.nama || item?.kategori_prediksi || item?.kategori) : item?.[key]).filter(Boolean))];
+
+const filteredPengaduans = computed(() => {
+  const search = filters.value.search.toLowerCase();
+  const items = pengaduans.value.filter((item) => {
+    const text = `${item.kode_tiket || ""} ${item.kode || ""} ${item.judul || ""} ${item.pelapor?.nama || ""} ${item.pelapor_name || ""} ${item.user?.nama_lengkap || ""} ${item.user?.nama || ""}`.toLowerCase();
+    const statusOk = !filters.value.status || item.status === filters.value.status;
+    const kategori = item.kategori?.nama || item.kategori_prediksi || item.kategori;
+    const kategoriOk = !filters.value.kategori || kategori === filters.value.kategori;
+    return text.includes(search) && statusOk && kategoriOk;
+  });
+  return [...items].sort((a, b) => {
+    if (sortBy.value === "title") return String(a.judul || "").localeCompare(String(b.judul || ""));
+    const aTime = new Date(a.created_at || 0).getTime();
+    const bTime = new Date(b.created_at || 0).getTime();
+    return sortBy.value === "oldest" ? aTime - bTime : bTime - aTime;
+  });
+});
+const pageCount = computed(() => Math.max(1, Math.ceil(filteredPengaduans.value.length / perPage)));
+const pagedPengaduans = computed(() => filteredPengaduans.value.slice((page.value - 1) * perPage, page.value * perPage));
+
+watch([filters, sortBy], () => {
+  page.value = 1;
+}, { deep: true });
 
 function statusBadgeClass(status) {
   if (!status)
@@ -156,7 +218,7 @@ const load = async () => {
   error.value = "";
   try {
     const res = await adminService.getAllPengaduan();
-    pengaduans.value = res.data || [];
+    pengaduans.value = res.data?.data || res.data || [];
   } catch (err) {
     error.value = err?.message || "Server error";
   } finally {

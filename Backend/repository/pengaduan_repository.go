@@ -54,6 +54,7 @@ func (r *pengaduanRepository) GetByID(id uint64) (*models.Pengaduan, error) {
 		Preload("Unit").
 		Preload("HasilAI").
 		Preload("Disposisi").
+		Preload("ResponPengaduan.User").
 		First(&pengaduan, id).Error
 
 	if err != nil {
@@ -78,6 +79,7 @@ func (r *pengaduanRepository) GetByKodeTiket(kode string) (*models.Pengaduan, er
 		Preload("Unit").
 		Preload("HasilAI").
 		Preload("Disposisi").
+		Preload("ResponPengaduan.User").
 		First(&pengaduan).Error
 
 	if err != nil {

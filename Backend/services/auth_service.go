@@ -103,7 +103,7 @@ func (s *AuthService) Register(req dto.RegisterRequest) (*dto.LoginResponse, err
 
 func (s *AuthService) Login(req dto.LoginRequest) (*dto.LoginResponse, error) {
 
-	user, err := s.repo.GetUserByEmail(req.Email)
+	user, err := s.repo.GetUserByEmailOrNIM(req.Email)
 
 	if err != nil {
 		return nil, errors.New("email atau password salah")

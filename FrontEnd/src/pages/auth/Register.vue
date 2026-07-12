@@ -45,12 +45,18 @@
             <label class="text-sm font-semibold text-slate-900"
               >Program Studi</label
             >
-            <input
-              v-model="form.prodi"
-              type="text"
-              placeholder="Pilih Program Studi"
+            <select
+              v-model="form.program_studi"
               class="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-soft transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20"
-            />
+            >
+              <option value="">Pilih Program Studi</option>
+              <option>Teknik Informatika</option>
+              <option>Teknik Industri</option>
+              <option>Teknik Mesin</option>
+              <option>Teknik Elektro</option>
+              <option>Teknik Sipil</option>
+              <option>Arsitektur</option>
+            </select>
           </div>
           <div class="space-y-2">
             <label class="text-sm font-semibold text-slate-900"
@@ -60,6 +66,28 @@
               v-model="form.email"
               type="email"
               placeholder="nim@mahasiswa.umj.ac.id"
+              class="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-soft transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20"
+            />
+          </div>
+        </div>
+        <div class="grid gap-5 sm:grid-cols-2">
+          <div class="space-y-2">
+            <label class="text-sm font-semibold text-slate-900">Angkatan</label>
+            <input
+              v-model.number="form.angkatan"
+              type="number"
+              min="2000"
+              max="2100"
+              placeholder="2023"
+              class="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-soft transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20"
+            />
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm font-semibold text-slate-900">No. HP</label>
+            <input
+              v-model="form.no_hp"
+              type="tel"
+              placeholder="08xxxxxxxxxx"
               class="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-soft transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20"
             />
           </div>
@@ -118,6 +146,7 @@
 <script setup>
 import { ref } from "vue";
 import { useRouter } from "vue-router";
+import AuthLayout from "../../layouts/AuthLayout.vue";
 import authService from "../../services/auth.service";
 import { useToastStore } from "../../stores/toast";
 
@@ -125,15 +154,27 @@ const router = useRouter();
 const form = ref({
   nama: "",
   nim: "",
-  prodi: "",
+  program_studi: "",
+  angkatan: new Date().getFullYear(),
+  no_hp: "",
   email: "",
   password: "",
   confirmPassword: "",
 });
 
 const handleSubmit = async () => {
+  const toast = useToastStore();
+  if (
+    !form.value.nama.trim() ||
+    !form.value.nim.trim() ||
+    !form.value.program_studi.trim() ||
+    !form.value.email.trim() ||
+    !form.value.password.trim()
+  ) {
+    toast.add({ type: "danger", message: "Lengkapi seluruh field wajib." });
+    return;
+  }
   if (form.value.password !== form.value.confirmPassword) {
-    const toast = useToastStore();
     toast.add({
       type: "danger",
       message: "Password dan konfirmasi tidak cocok.",
@@ -142,16 +183,21 @@ const handleSubmit = async () => {
   }
   try {
     await authService.register({
-      nama: form.value.nama,
+      nama_lengkap: form.value.nama,
       nim: form.value.nim,
-      prodi: form.value.prodi,
+      program_studi: form.value.program_studi,
+      angkatan: Number(form.value.angkatan),
+      no_hp: form.value.no_hp,
       email: form.value.email,
       password: form.value.password,
     });
+    toast.add({ type: "success", message: "Registrasi berhasil. Silakan masuk." });
     router.push("/auth/login");
   } catch (error) {
-    const toast = useToastStore();
-    toast.add({ type: "danger", message: "Gagal mendaftar. Coba lagi." });
+    toast.add({
+      type: "danger",
+      message: error?.response?.data?.message || "Gagal mendaftar. Coba lagi.",
+    });
   }
 };
 </script>

@@ -12,17 +12,36 @@ NEGATIVE_SCORE_HIGH_THRESHOLD = -4
 NEGATIVE_SCORE_MEDIUM_THRESHOLD = -2
 
 HIGH_URGENCY_KEYWORDS = {
+    "ancam",
     "bahaya",
+    "bakar",
     "darurat",
     "fatal",
     "gawat",
+    "jatuh",
     "kecelakaan",
     "kebakaran",
+    "korsleting",
     "krisis",
+    "luka",
     "parah",
     "penting",
     "rusak",
     "segera",
+    "terluka",
+}
+
+CRITICAL_URGENCY_KEYWORDS = {
+    "api",
+    "asap",
+    "bakar",
+    "darurat",
+    "gawat",
+    "kebakaran",
+    "korsleting",
+    "luka",
+    "pingsan",
+    "terbakar",
     "terluka",
 }
 
@@ -58,6 +77,11 @@ def calculate_urgency_score(tokens: list[str], sentiment_score: int = 0) -> int:
 
 def determine_urgency(tokens: list[str], sentiment_score: int = 0) -> str:
     """Tentukan tingkat urgensi Rendah, Sedang, atau Tinggi."""
+    token_set = set(tokens)
+    if token_set.intersection(CRITICAL_URGENCY_KEYWORDS):
+        logger.info("Urgensi tinggi karena keyword kritis terdeteksi")
+        return "Tinggi"
+
     urgency_score = calculate_urgency_score(tokens, sentiment_score)
 
     if urgency_score >= HIGH_URGENCY_THRESHOLD:

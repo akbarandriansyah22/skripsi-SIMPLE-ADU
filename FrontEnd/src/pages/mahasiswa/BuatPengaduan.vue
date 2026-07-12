@@ -25,12 +25,12 @@
           <div class="space-y-2">
             <label class="text-sm font-semibold text-slate-900">Kategori</label>
             <select
-              v-model="form.kategori"
+              v-model.number="form.kategori_id"
               class="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-soft transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20"
             >
-              <option>Sarana Prasarana</option>
-              <option>KRS & Akademik</option>
-              <option>Tata Tertib</option>
+              <option v-for="item in kategoriOptions" :key="item.id" :value="item.id">
+                {{ item.nama }}
+              </option>
             </select>
           </div>
         </div>
@@ -56,16 +56,8 @@
               class="w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700 shadow-soft transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20"
             />
           </div>
-          <div class="space-y-2">
-            <label class="text-sm font-semibold text-slate-900">Urgensi</label>
-            <select
-              v-model="form.urgensi"
-              class="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-soft transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20"
-            >
-              <option>Tinggi</option>
-              <option>Sedang</option>
-              <option>Rendah</option>
-            </select>
+          <div class="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            Setelah dikirim, sistem AI akan mengisi kategori prediksi, sentimen, urgensi, dan status pada detail aduan.
           </div>
         </div>
         <button
@@ -84,18 +76,24 @@
 <script setup>
 import { ref } from "vue";
 import { useRouter } from "vue-router";
+import MahasiswaLayout from "../../layouts/MahasiswaLayout.vue";
 import pengaduanService from "../../services/pengaduan.service";
 import { useToastStore } from "../../stores/toast";
 
 const router = useRouter();
 const submitting = ref(false);
 const toast = useToastStore();
+const kategoriOptions = [
+  { id: 1, nama: "Sarana Prasarana" },
+  { id: 2, nama: "Akademik" },
+  { id: 3, nama: "Keuangan" },
+  { id: 4, nama: "Layanan Administrasi" },
+];
 
 const form = ref({
   judul: "",
-  kategori: "Sarana Prasarana",
+  kategori_id: 1,
   deskripsi: "",
-  urgensi: "Tinggi",
   lampiran: null,
 });
 
@@ -111,10 +109,9 @@ const handleSubmit = async () => {
     }
     submitting.value = true;
     const payload = new FormData();
+    payload.append("kategori_id", String(form.value.kategori_id));
     payload.append("judul", form.value.judul);
-    payload.append("kategori", form.value.kategori);
     payload.append("deskripsi", form.value.deskripsi);
-    payload.append("urgensi", form.value.urgensi);
     if (form.value.lampiran) payload.append("lampiran", form.value.lampiran);
 
     await pengaduanService.create(payload);
@@ -127,8 +124,7 @@ const handleSubmit = async () => {
   }
 };
 
-const onFileChange = (e) => {
-  const f = e.target.files && e.target.files[0];
-  form.value.lampiran = f || null;
+const onFileChange = (event) => {
+  form.value.lampiran = event.target.files?.[0] || null;
 };
 </script>

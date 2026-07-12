@@ -11,14 +11,14 @@ export const usePengaduanStore = defineStore('pengaduan', {
     async loadMyPengaduan() {
       this.status = 'loading'
       const response = await pengaduanService.myPengaduan()
-      this.list = response.data || []
+      this.list = response.data?.data || response.data || []
       this.status = 'success'
       return response
     },
     async loadDetail(id) {
       this.status = 'loading'
       const response = await pengaduanService.detail(id)
-      this.detail = response.data || null
+      this.detail = response.data?.data || response.data || null
       this.status = 'success'
       return response
     },

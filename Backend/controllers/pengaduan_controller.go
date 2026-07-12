@@ -7,6 +7,7 @@ import (
 
 	dto "backend/DTO"
 	service "backend/services"
+	"backend/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -27,9 +28,8 @@ func (c *PengaduanController) Create(ctx *gin.Context) {
 		return
 	}
 
-	var req dto.CreatePengaduanRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+	req, ok := bindCreatePengaduanRequest(ctx)
+	if !ok {
 		return
 	}
 
@@ -40,6 +40,46 @@ func (c *PengaduanController) Create(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusCreated, gin.H{"success": true, "message": "Pengaduan berhasil dibuat", "data": result})
+}
+
+func bindCreatePengaduanRequest(ctx *gin.Context) (dto.CreatePengaduanRequest, bool) {
+	if ctx.ContentType() != "multipart/form-data" && ctx.ContentType() != "application/x-www-form-urlencoded" {
+		var req dto.CreatePengaduanRequest
+		if err := ctx.ShouldBindJSON(&req); err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+			return req, false
+		}
+		return req, true
+	}
+
+	kategoriID, err := strconv.ParseUint(ctx.PostForm("kategori_id"), 10, 64)
+	if err != nil || kategoriID == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "kategori_id wajib diisi"})
+		return dto.CreatePengaduanRequest{}, false
+	}
+
+	lampiran := ctx.PostForm("lampiran")
+	if _, err := ctx.FormFile("lampiran"); err == nil {
+		uploaded, err := utils.UploadFile(ctx, "lampiran")
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "gagal upload lampiran"})
+			return dto.CreatePengaduanRequest{}, false
+		}
+		lampiran = uploaded
+	}
+
+	req := dto.CreatePengaduanRequest{
+		KategoriID: uint(kategoriID),
+		Judul:      ctx.PostForm("judul"),
+		Deskripsi:  ctx.PostForm("deskripsi"),
+		Lampiran:   lampiran,
+	}
+	if req.Judul == "" || req.Deskripsi == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "judul dan deskripsi wajib diisi"})
+		return req, false
+	}
+
+	return req, true
 }
 
 func (c *PengaduanController) MyPengaduan(ctx *gin.Context) {

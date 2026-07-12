@@ -68,11 +68,22 @@ func (s *AdminService) UpdateStatus(id uint64, req dto.UpdateStatusRequest) erro
 		return errors.New("status tidak valid")
 	}
 
-	if _, err := s.pengaduanRepo.GetByID(id); err != nil {
+	pengaduan, err := s.pengaduanRepo.GetByID(id)
+	if err != nil {
 		return err
 	}
 
-	return s.pengaduanRepo.UpdateStatus(id, req.Status)
+	if err := s.pengaduanRepo.UpdateStatus(id, req.Status); err != nil {
+		return err
+	}
+
+	_ = NewNotifikasiService().Create(
+		pengaduan.UserID,
+		"Status Aduan Diperbarui",
+		"Status aduan "+pengaduan.KodeTiket+" berubah menjadi "+req.Status,
+	)
+
+	return nil
 }
 
 func (s *AdminService) AssignUnit(id uint64, req dto.AssignUnitRequest) error {

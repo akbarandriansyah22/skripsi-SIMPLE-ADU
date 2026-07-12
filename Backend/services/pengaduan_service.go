@@ -196,11 +196,23 @@ func (s *PengaduanService) AddRespon(userID uint, role string, pengaduanID uint6
 		return ErrForbidden
 	}
 
-	return s.responRepo.Create(&models.ResponPengaduan{
+	if err := s.responRepo.Create(&models.ResponPengaduan{
 		PengaduanID: uint(pengaduanID),
 		UserID:      userID,
 		Pesan:       pesan,
-	})
+	}); err != nil {
+		return err
+	}
+
+	if !isMahasiswaRole(role) {
+		_ = NewNotifikasiService().Create(
+			pengaduan.UserID,
+			"Balasan Baru dari Admin",
+			"Ada balasan baru untuk aduan "+pengaduan.KodeTiket,
+		)
+	}
+
+	return nil
 }
 
 func (s *PengaduanService) Finish(userID uint64, id uint64) error {
@@ -230,7 +242,7 @@ func mapPengaduanResponses(items []models.Pengaduan) []dto.PengaduanResponse {
 }
 
 func mapPengaduanResponse(pengaduan *models.Pengaduan) *dto.PengaduanResponse {
-	return &dto.PengaduanResponse{
+	response := &dto.PengaduanResponse{
 		ID:         pengaduan.ID,
 		KodeTiket:  pengaduan.KodeTiket,
 		UserID:     pengaduan.UserID,
@@ -245,6 +257,41 @@ func mapPengaduanResponse(pengaduan *models.Pengaduan) *dto.PengaduanResponse {
 		Confidence: scoreToConfidence(pengaduan.HasilAI.SkorSentimen),
 		CreatedAt:  pengaduan.CreatedAt,
 	}
+
+	if pengaduan.User.ID != 0 {
+		response.User = &dto.UserResponse{
+			ID:          pengaduan.User.ID,
+			NamaLengkap: pengaduan.User.NamaLengkap,
+			Email:       pengaduan.User.Email,
+			Role:        pengaduan.User.Role,
+			IsActive:    pengaduan.User.IsActive,
+		}
+	}
+
+	if len(pengaduan.ResponPengaduan) > 0 {
+		response.ResponPengaduan = make([]dto.ResponPengaduanResponse, 0, len(pengaduan.ResponPengaduan))
+		for _, item := range pengaduan.ResponPengaduan {
+			respon := dto.ResponPengaduanResponse{
+				ID:          item.ID,
+				PengaduanID: item.PengaduanID,
+				UserID:      item.UserID,
+				Pesan:       item.Pesan,
+				CreatedAt:   item.CreatedAt,
+			}
+			if item.User.ID != 0 {
+				respon.User = &dto.UserResponse{
+					ID:          item.User.ID,
+					NamaLengkap: item.User.NamaLengkap,
+					Email:       item.User.Email,
+					Role:        item.User.Role,
+					IsActive:    item.User.IsActive,
+				}
+			}
+			response.ResponPengaduan = append(response.ResponPengaduan, respon)
+		}
+	}
+
+	return response
 }
 
 func confidenceToScore(confidence float64) int {
