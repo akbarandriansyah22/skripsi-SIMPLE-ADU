@@ -76,6 +76,18 @@ def test_predict_endpoint_medium_urgency_keyword() -> None:
     assert data["urgency"] in {"Sedang", "Tinggi"}
 
 
+def test_predict_endpoint_wifi_lab_complaint_is_medium_urgency() -> None:
+    payload = PredictRequest(
+        deskripsi="Wifi laboratorium lambat dan mengganggu kegiatan praktikum."
+    )
+    data = predict(payload)
+
+    assert data["tokens"] == ["wifi", "laboratorium", "lambat", "ganggu", "giat", "praktikum"]
+    assert data["score"] == 0
+    assert data["sentiment"] == "Netral"
+    assert data["urgency"] == "Sedang"
+
+
 def test_predict_endpoint_without_urgency_keyword() -> None:
     payload = PredictRequest(deskripsi="Informasi jadwal kuliah semester ini belum jelas.")
     data = predict(payload)

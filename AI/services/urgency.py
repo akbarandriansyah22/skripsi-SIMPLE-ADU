@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 
+from services.urgency_model import URGENCY_LEVELS, predict_urgency_from_model
+
 logger = logging.getLogger(__name__)
 
 HIGH_URGENCY_THRESHOLD = 5
@@ -84,8 +86,14 @@ def determine_urgency(tokens: list[str], sentiment_score: int = 0) -> str:
 
     urgency_score = calculate_urgency_score(tokens, sentiment_score)
 
+    rule_urgency = "Rendah"
     if urgency_score >= HIGH_URGENCY_THRESHOLD:
-        return "Tinggi"
-    if urgency_score >= MEDIUM_URGENCY_THRESHOLD:
-        return "Sedang"
-    return "Rendah"
+        rule_urgency = "Tinggi"
+    elif urgency_score >= MEDIUM_URGENCY_THRESHOLD:
+        rule_urgency = "Sedang"
+
+    model_urgency = predict_urgency_from_model(tokens)
+    if model_urgency in URGENCY_LEVELS:
+        return max((rule_urgency, model_urgency), key=lambda label: URGENCY_LEVELS[label])
+
+    return rule_urgency
