@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"time"
@@ -26,7 +27,9 @@ func main() {
 			return
 		}
 		db, err := config.DB.DB()
-		if err != nil || db.PingContext(c, 2*time.Second) != nil {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+		defer cancel()
+		if err != nil || db.PingContext(ctx) != nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "not_ready"})
 			return
 		}
