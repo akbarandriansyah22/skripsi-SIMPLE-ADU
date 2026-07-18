@@ -2,13 +2,23 @@ package utils
 
 import (
 	"errors"
+	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
 func GenerateJWT(userID uint, role string) (string, error) {
+	secret, err := jwtSecret()
+	if err != nil {
+		return "", err
+	}
+	canonicalRole := CanonicalRole(role)
+	if userID == 0 || canonicalRole == "" {
+		return "", errors.New("claim JWT tidak valid")
+	}
 
 	claims := jwt.MapClaims{
 		"user_id": userID,
@@ -18,16 +28,20 @@ func GenerateJWT(userID uint, role string) (string, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	return token.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	return token.SignedString(secret)
 }
 
 func ParseJWT(tokenString string) (uint, string, error) {
+	secret, err := jwtSecret()
+	if err != nil {
+		return 0, "", err
+	}
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		if token.Method != jwt.SigningMethodHS256 {
 			return nil, errors.New("metode token tidak valid")
 		}
 
-		return []byte(os.Getenv("JWT_SECRET")), nil
+		return secret, nil
 	})
 
 	if err != nil || !token.Valid {
@@ -49,5 +63,22 @@ func ParseJWT(tokenString string) (uint, string, error) {
 		return 0, "", errors.New("role token tidak valid")
 	}
 
-	return uint(userIDFloat), role, nil
+	if userIDFloat <= 0 || userIDFloat != float64(uint64(userIDFloat)) || CanonicalRole(role) == "" {
+		return 0, "", errors.New("claim token tidak valid")
+	}
+
+	return uint(userIDFloat), CanonicalRole(role), nil
+}
+
+func jwtSecret() ([]byte, error) {
+	secret := os.Getenv("JWT_SECRET")
+	if len(secret) < 32 || strings.Contains(strings.ToLower(secret), "replace_with") || strings.Contains(strings.ToLower(secret), "change_me") {
+		return nil, fmt.Errorf("JWT_SECRET wajib diisi dengan secret minimal 32 karakter")
+	}
+	return []byte(secret), nil
+}
+
+func ValidateJWTSecret() error {
+	_, err := jwtSecret()
+	return err
 }

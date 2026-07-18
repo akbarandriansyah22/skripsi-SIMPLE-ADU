@@ -1,7 +1,6 @@
 services:
   postgres:
     image: postgres:16
-    container_name: simpel-adu-postgres
     restart: unless-stopped
 
     environment:
@@ -10,13 +9,13 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
 
     ports:
-      - "5434:5432"
+      - "${POSTGRES_HOST_PORT:-5434}:5432"
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -29,17 +28,16 @@ services:
       context: ./AI
       dockerfile: Dockerfile
 
-    container_name: simpel-adu-ai
     restart: unless-stopped
 
     ports:
-      - "8000:8000"
+      - "${AI_HOST_PORT:-8000}:8000"
 
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "python -c \"import socket; s=socket.create_connection(('localhost', 8000), 2); s.close()\"",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)\"",
         ]
       interval: 10s
       timeout: 5s
@@ -53,14 +51,13 @@ services:
       context: ./Backend
       dockerfile: Dockerfile
 
-    container_name: simpel-adu-backend
     restart: unless-stopped
 
     depends_on:
       postgres:
         condition: service_healthy
       ai:
-        condition: service_started
+        condition: service_healthy
 
     environment:
       DB_HOST: ${DB_HOST}
@@ -71,12 +68,13 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       AI_SERVICE: ${AI_SERVICE}
       PORT: ${PORT}
+      UPLOAD_DIR: ${UPLOAD_DIR:-/app/uploads}
 
     ports:
-      - "8080:8080"
+      - "${BACKEND_HOST_PORT:-8080}:8080"
 
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 8080"]
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/ready"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -84,19 +82,22 @@ services:
     networks:
       - simpel-network
 
+    volumes:
+      - uploads_data:/app/uploads
+
   frontend:
     build:
       context: ./FrontEnd
       dockerfile: Dockerfile
 
-    container_name: simpel-adu-frontend
     restart: unless-stopped
 
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
     ports:
-      - "5173:80"
+      - "${FRONTEND_HOST_PORT:-5173}:80"
 
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost || exit 1"]
@@ -109,6 +110,8 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:
+
 
 networks:
   simpel-network:

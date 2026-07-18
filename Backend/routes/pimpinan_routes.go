@@ -11,7 +11,7 @@ func PimpinanRoutes(r *gin.Engine) {
 	pimpinan := controller.NewPimpinanController()
 
 	api := r.Group("/api/pimpinan")
-	api.Use(middleware.AuthMiddleware(), middleware.RoleMiddleware("pimpinan", "pimpinan_fakultas", "Pimpinan Fakultas"))
+	api.Use(middleware.AuthMiddleware(), middleware.RoleMiddleware("pimpinan_fakultas"))
 	{
 		api.GET("/dashboard", pimpinan.Dashboard)
 		api.GET("/pengaduan/urgensi-tinggi", pimpinan.GetUrgensiTinggi)

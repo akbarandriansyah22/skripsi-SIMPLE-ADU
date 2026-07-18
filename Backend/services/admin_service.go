@@ -6,8 +6,12 @@ import (
 	"strings"
 
 	dto "backend/DTO"
+	"backend/config"
 	"backend/models"
 	"backend/repository"
+	"backend/utils"
+
+	"gorm.io/gorm"
 )
 
 type AdminService struct {
@@ -78,17 +82,15 @@ func (s *AdminService) UpdateStatus(id uint64, req dto.UpdateStatusRequest) erro
 		return err
 	}
 
-	if err := s.pengaduanRepo.UpdateStatus(id, req.Status); err != nil {
-		return err
+	if !isValidStatusTransition(pengaduan.Status, req.Status) {
+		return errors.New("transisi status tidak diizinkan")
 	}
-
-	_ = NewNotifikasiService().Create(
-		pengaduan.UserID,
-		"Status Aduan Diperbarui",
-		"Status aduan "+pengaduan.KodeTiket+" berubah menjadi "+req.Status,
-	)
-
-	return nil
+	return config.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&models.Pengaduan{}).Where("id = ?", id).Update("status", req.Status).Error; err != nil {
+			return err
+		}
+		return tx.Create(&models.Notifikasi{UserID: pengaduan.UserID, Judul: "Status Aduan Diperbarui", Isi: "Status aduan " + pengaduan.KodeTiket + " berubah menjadi " + req.Status}).Error
+	})
 }
 
 func (s *AdminService) AssignUnit(id uint64, req dto.AssignUnitRequest) error {
@@ -101,10 +103,18 @@ func (s *AdminService) AssignUnit(id uint64, req dto.AssignUnitRequest) error {
 		return err
 	}
 
-	pengaduan.UnitID = &req.UnitID
-	pengaduan.Status = "Diproses"
-
-	return s.pengaduanRepo.Update(pengaduan)
+	if !strings.EqualFold(pengaduan.Status, StatusMenunggu) {
+		return errors.New("unit hanya dapat ditetapkan saat menunggu verifikasi")
+	}
+	if pengaduan.HasilAI != nil && strings.EqualFold(pengaduan.HasilAI.Urgensi, "Tinggi") {
+		return errors.New("pengaduan urgensi Tinggi harus diteruskan ke pimpinan")
+	}
+	return config.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&models.Pengaduan{}).Where("id = ?", id).Updates(map[string]interface{}{"unit_id": req.UnitID, "status": StatusDiproses}).Error; err != nil {
+			return err
+		}
+		return tx.Create(&models.Notifikasi{UserID: pengaduan.UserID, Judul: "Pengaduan Mulai Diproses", Isi: "Pengaduan " + pengaduan.KodeTiket + " telah diteruskan ke unit terkait."}).Error
+	})
 }
 
 func (s *AdminService) ForwardToPimpinan(id uint64) error {
@@ -116,8 +126,24 @@ func (s *AdminService) ForwardToPimpinan(id uint64) error {
 	if pengaduan.HasilAI == nil || strings.ToLower(pengaduan.HasilAI.Urgensi) != strings.ToLower("Tinggi") {
 		return errors.New("hanya pengaduan urgensi Tinggi yang diteruskan ke pimpinan")
 	}
-
-	return s.pengaduanRepo.UpdateStatus(id, "Diteruskan ke Pimpinan")
+	if !strings.EqualFold(pengaduan.Status, StatusMenunggu) {
+		return errors.New("pengaduan hanya dapat diteruskan setelah verifikasi admin")
+	}
+	return config.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&models.Pengaduan{}).Where("id = ?", id).Update("status", StatusDiteruskan).Error; err != nil {
+			return err
+		}
+		var pimpinan []models.User
+		if err := tx.Where("role = ?", utils.RolePimpinan).Find(&pimpinan).Error; err != nil {
+			return err
+		}
+		for _, user := range pimpinan {
+			if err := tx.Create(&models.Notifikasi{UserID: user.ID, Judul: "Pengaduan Urgensi Tinggi", Isi: "Pengaduan " + pengaduan.KodeTiket + " menunggu disposisi."}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (s *AdminService) ReanalyzeAI(id uint64) (*dto.ReanalyzeAIResponse, error) {
@@ -157,11 +183,7 @@ func (s *AdminService) GetUnits() ([]models.Unit, error) {
 
 func isAllowedPengaduanStatus(status string) bool {
 	switch strings.ToLower(status) {
-	case strings.ToLower("Menunggu Verifikasi"),
-		strings.ToLower("Diproses"),
-		strings.ToLower("Selesai"),
-		strings.ToLower("Ditolak"),
-		strings.ToLower("Diteruskan ke Pimpinan"):
+	case strings.ToLower(StatusMenunggu), strings.ToLower(StatusDiproses), strings.ToLower(StatusSelesai), strings.ToLower(StatusDitolak), strings.ToLower(StatusDiteruskan):
 		return true
 	default:
 		return false

@@ -35,6 +35,7 @@ func (c *PengaduanController) Create(ctx *gin.Context) {
 
 	result, err := c.service.Create(userID, req)
 	if err != nil {
+		_ = utils.DeleteUploadedFile(req.Lampiran)
 		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
 		return
 	}

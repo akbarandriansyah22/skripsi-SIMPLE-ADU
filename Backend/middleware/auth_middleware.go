@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strings"
 
+	"backend/config"
+	"backend/models"
 	"backend/utils"
 
 	"github.com/gin-gonic/gin"
@@ -38,16 +40,26 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		if !isValidRole(role) {
+		canonicalRole := utils.CanonicalRole(role)
+		if canonicalRole == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"success": false,
 				"message": "Role token tidak valid",
 			})
 			return
 		}
+		if config.DB == nil {
+			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"success": false, "message": "database belum siap"})
+			return
+		}
+		var user models.User
+		if err := config.DB.Select("is_active").First(&user, userID).Error; err != nil || !user.IsActive {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"success": false, "message": "akun tidak aktif atau tidak ditemukan"})
+			return
+		}
 
 		c.Set("user_id", userID)
-		c.Set("role", role)
+		c.Set("role", canonicalRole)
 		c.Next()
 	}
 }
@@ -55,7 +67,10 @@ func AuthMiddleware() gin.HandlerFunc {
 func RoleMiddleware(allowedRoles ...string) gin.HandlerFunc {
 	allowed := make(map[string]bool, len(allowedRoles))
 	for _, role := range allowedRoles {
-		allowed[strings.ToLower(role)] = true
+		canonical := utils.CanonicalRole(role)
+		if canonical != "" {
+			allowed[canonical] = true
+		}
 	}
 
 	return func(c *gin.Context) {
@@ -69,7 +84,7 @@ func RoleMiddleware(allowedRoles ...string) gin.HandlerFunc {
 		}
 
 		role, ok := roleValue.(string)
-		if !ok || !allowed[strings.ToLower(role)] {
+		if !ok || !allowed[utils.CanonicalRole(role)] {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
 				"success": false,
 				"message": "Akses ditolak",
@@ -78,14 +93,5 @@ func RoleMiddleware(allowedRoles ...string) gin.HandlerFunc {
 		}
 
 		c.Next()
-	}
-}
-
-func isValidRole(role string) bool {
-	switch strings.ToLower(role) {
-	case "mahasiswa", "petugas", "admin", "admin_fakultas", "admin fakultas", "pimpinan", "pimpinan_fakultas", "pimpinan fakultas":
-		return true
-	default:
-		return false
 	}
 }

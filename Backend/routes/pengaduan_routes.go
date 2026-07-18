@@ -18,7 +18,7 @@ func PengaduanRoutes(r *gin.Engine) {
 		api.GET("/tiket/:kode", pengaduan.DetailByTicket)
 		api.GET("/:id", pengaduan.Detail)
 		api.PUT("/:id", middleware.RoleMiddleware("mahasiswa"), pengaduan.Update)
-		api.POST("/:id/respon", middleware.RoleMiddleware("mahasiswa", "petugas", "admin", "admin_fakultas", "Admin Fakultas", "pimpinan", "pimpinan_fakultas", "Pimpinan Fakultas"), pengaduan.AddRespon)
+		api.POST("/:id/respon", middleware.RoleMiddleware("mahasiswa", "admin_fakultas", "pimpinan_fakultas"), pengaduan.AddRespon)
 		api.PATCH("/:id/selesai", middleware.RoleMiddleware("mahasiswa"), pengaduan.Finish)
 	}
 }

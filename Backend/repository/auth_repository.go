@@ -3,6 +3,7 @@ package repository
 import (
 	"backend/config"
 	"backend/models"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -26,7 +27,7 @@ func (r *AuthRepository) GetUserByEmail(email string) (*models.User, error) {
 	var user models.User
 
 	err := r.DB.
-		Where("email = ?", email).
+		Where("LOWER(email) = ?", strings.ToLower(strings.TrimSpace(email))).
 		First(&user).Error
 
 	if err != nil {
@@ -44,9 +45,13 @@ func (r *AuthRepository) GetUserByEmailOrNIM(identifier string) (*models.User, e
 
 	var user models.User
 
+	identifier = strings.TrimSpace(identifier)
+	if strings.Contains(identifier, "@") {
+		identifier = strings.ToLower(identifier)
+	}
 	err := r.DB.
 		Joins("LEFT JOIN mahasiswa ON mahasiswa.user_id = users.id").
-		Where("users.email = ? OR mahasiswa.nim = ?", identifier, identifier).
+		Where("LOWER(users.email) = ? OR mahasiswa.nim = ?", identifier, identifier).
 		First(&user).Error
 
 	if err != nil {

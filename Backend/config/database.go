@@ -7,6 +7,7 @@ import (
 
 	"backend/models"
 	"backend/seed"
+	"backend/utils"
 
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
@@ -17,6 +18,9 @@ var DB *gorm.DB
 
 func ConnectDatabase() {
 	_ = godotenv.Load()
+	if err := utils.ValidateJWTSecret(); err != nil {
+		log.Fatalf("Konfigurasi JWT tidak valid: %v", err)
+	}
 
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Jakarta",

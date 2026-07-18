@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, status
+from fastapi.responses import JSONResponse
 
 from api.routes import router
 
@@ -24,5 +25,18 @@ app.include_router(router)
 
 @app.get("/health")
 def health_check() -> dict[str, str]:
-    """Health check sederhana untuk memastikan API aktif."""
-    return {"status": "ok"}
+    """Readiness check verifies the model and both sentiment lexicons."""
+    try:
+        from services.sentiment import load_sentiment_lexicons
+        from services.urgency_model import load_urgency_model
+
+        load_sentiment_lexicons()
+        if load_urgency_model() is None:
+            raise RuntimeError("model urgensi tidak tersedia atau rusak")
+        return {"status": "ok"}
+    except Exception:
+        logging.getLogger(__name__).exception("AI belum siap")
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"status": "not_ready"},
+        )

@@ -3,6 +3,7 @@ package seed
 import (
 	"errors"
 	"log"
+	"strings"
 
 	"backend/models"
 	"backend/utils"
@@ -26,12 +27,12 @@ var demoUsers = []demoUser{
 	{
 		NamaLengkap: "Admin Fakultas",
 		Email:       "admin@simpel-adu.test",
-		Role:        "petugas",
+		Role:        utils.RoleAdmin,
 	},
 	{
 		NamaLengkap: "Pimpinan Fakultas",
 		Email:       "pimpinan@simpel-adu.test",
-		Role:        "pimpinan",
+		Role:        utils.RolePimpinan,
 	},
 	{
 		NamaLengkap:  "Mahasiswa Demo",
@@ -56,13 +57,8 @@ func SeedDemoUsers(db *gorm.DB) error {
 }
 
 func seedDemoUser(db *gorm.DB, demo demoUser) error {
-	passwordHash, err := utils.HashPassword(demoPassword)
-	if err != nil {
-		return err
-	}
-
 	return db.Transaction(func(tx *gorm.DB) error {
-		user, err := upsertDemoUser(tx, demo, passwordHash)
+		user, err := upsertDemoUser(tx, demo)
 		if err != nil {
 			return err
 		}
@@ -75,20 +71,24 @@ func seedDemoUser(db *gorm.DB, demo demoUser) error {
 	})
 }
 
-func upsertDemoUser(tx *gorm.DB, demo demoUser, passwordHash string) (*models.User, error) {
+func upsertDemoUser(tx *gorm.DB, demo demoUser) (*models.User, error) {
 	var user models.User
-	err := tx.Where("email = ?", demo.Email).First(&user).Error
+	email := strings.ToLower(strings.TrimSpace(demo.Email))
+	err := tx.Where("LOWER(email) = ?", email).First(&user).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
 
-	user.NamaLengkap = demo.NamaLengkap
-	user.Email = demo.Email
-	user.PasswordHash = passwordHash
-	user.Role = demo.Role
-	user.IsActive = true
-
 	if errors.Is(err, gorm.ErrRecordNotFound) {
+		passwordHash, hashErr := utils.HashPassword(demoPassword)
+		if hashErr != nil {
+			return nil, hashErr
+		}
+		user.NamaLengkap = demo.NamaLengkap
+		user.Email = email
+		user.PasswordHash = passwordHash
+		user.Role = demo.Role
+		user.IsActive = true
 		if err := tx.Create(&user).Error; err != nil {
 			return nil, err
 		}
@@ -96,7 +96,10 @@ func upsertDemoUser(tx *gorm.DB, demo demoUser, passwordHash string) (*models.Us
 		return &user, nil
 	}
 
-	if err := tx.Save(&user).Error; err != nil {
+	// Existing accounts are never reset or reactivated by a startup seeder.
+	// Legacy demo roles are normalized so JWT and route authorization converge.
+	updates := map[string]interface{}{"role": demo.Role}
+	if err := tx.Model(&user).Updates(updates).Error; err != nil {
 		return nil, err
 	}
 

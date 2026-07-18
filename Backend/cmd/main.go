@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"os"
+	"time"
 
 	"backend/config"
 	"backend/routes"
@@ -18,6 +19,19 @@ func main() {
 
 	r := gin.Default()
 	r.Use(corsMiddleware())
+	r.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "ok"}) })
+	r.GET("/ready", func(c *gin.Context) {
+		if config.DB == nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "not_ready"})
+			return
+		}
+		db, err := config.DB.DB()
+		if err != nil || db.PingContext(c, 2*time.Second) != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "not_ready"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "ready"})
+	})
 
 	routes.AuthRoutes(r)
 	routes.MahasiswaRoutes(r)
@@ -31,7 +45,9 @@ func main() {
 		port = "8080"
 	}
 
-	r.Run(":" + port)
+	if err := r.Run(":" + port); err != nil {
+		panic(err)
+	}
 }
 
 func corsMiddleware() gin.HandlerFunc {

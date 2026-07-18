@@ -34,7 +34,7 @@ func NewAIService() *AIService {
 	return &AIService{
 		baseURL: strings.TrimRight(baseURL, "/"),
 		client: &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout: 5 * time.Second,
 		},
 	}
 }

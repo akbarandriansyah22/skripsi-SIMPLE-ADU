@@ -21,15 +21,23 @@ export const useAuthStore = defineStore('auth', {
   actions: {
     async login(credentials) {
       this.status = 'loading'
-      const response = await authService.login(credentials)
-      this.token = response.data.token
-      this.user = response.data.user
-      this.role = this.user?.role || ''
-      localStorage.setItem('simpelToken', this.token)
-      localStorage.setItem('simpelRole', this.role)
-      localStorage.setItem('simpelUser', JSON.stringify(this.user))
-      this.status = 'success'
-      return response
+      try {
+        const response = await authService.login({
+          ...credentials,
+          email: String(credentials.email || '').trim(),
+        })
+        this.token = response.data.token
+        this.user = response.data.user
+        this.role = this.user?.role || ''
+        localStorage.setItem('simpelToken', this.token)
+        localStorage.setItem('simpelRole', this.role)
+        localStorage.setItem('simpelUser', JSON.stringify(this.user))
+        this.status = 'success'
+        return response
+      } catch (error) {
+        this.status = 'error'
+        throw error
+      }
     },
     logout() {
       this.user = null
@@ -38,6 +46,8 @@ export const useAuthStore = defineStore('auth', {
       localStorage.removeItem('simpelToken')
       localStorage.removeItem('simpelRole')
       localStorage.removeItem('simpelUser')
+      sessionStorage.clear()
+      this.status = 'idle'
     },
     loadFromStorage() {
       const token = localStorage.getItem('simpelToken')
@@ -49,6 +59,7 @@ export const useAuthStore = defineStore('auth', {
         this.user = user ? JSON.parse(user) : null
       } catch {
         this.user = null
+        this.logout()
       }
     },
   },

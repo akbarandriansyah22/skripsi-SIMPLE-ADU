@@ -7,6 +7,8 @@ import logging
 from functools import lru_cache
 from pathlib import Path
 
+from services.negation import is_negated
+
 logger = logging.getLogger(__name__)
 
 LEXICON_DIR = Path(__file__).resolve().parents[1] / "lexicon"
@@ -66,8 +68,15 @@ def analyze_sentiment(tokens: list[str]) -> dict[str, int | str]:
         logger.exception("Analisis sentimen gagal saat memuat lexicon")
         raise ValueError(f"Analisis sentimen gagal: {exc}") from exc
 
-    positive_score = sum(positive_words.get(token, 0) for token in tokens)
-    negative_score = sum(negative_words.get(token, 0) for token in tokens)
+    positive_score = 0
+    negative_score = 0
+    for index, token in enumerate(tokens):
+        positive = positive_words.get(token, 0)
+        negative = negative_words.get(token, 0)
+        if is_negated(tokens, index):
+            positive, negative = -negative, -positive
+        positive_score += positive
+        negative_score += negative
     total_score = positive_score + negative_score
 
     if total_score > 0:

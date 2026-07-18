@@ -11,6 +11,8 @@ import (
 	"backend/models"
 	"backend/repository"
 	"backend/utils"
+
+	"gorm.io/gorm"
 )
 
 var ErrForbidden = errors.New("akses ditolak")
@@ -155,7 +157,9 @@ func (s *PengaduanService) Update(userID uint64, id uint64, req dto.UpdatePengad
 	if pengaduan.Status != "Menunggu Verifikasi" {
 		return nil, errors.New("pengaduan hanya dapat diubah saat Menunggu Verifikasi")
 	}
+	originalDescription := pengaduan.Deskripsi
 
+	newDescription := pengaduan.Deskripsi
 	if req.KategoriID != 0 {
 		if _, err := s.kategoriRepo.GetByID(uint64(req.KategoriID)); err != nil {
 			return nil, errors.New("kategori pengaduan tidak ditemukan")
@@ -166,13 +170,48 @@ func (s *PengaduanService) Update(userID uint64, id uint64, req dto.UpdatePengad
 		pengaduan.Judul = req.Judul
 	}
 	if req.Deskripsi != "" {
-		pengaduan.Deskripsi = req.Deskripsi
+		newDescription = strings.TrimSpace(req.Deskripsi)
+		if newDescription == "" {
+			return nil, errors.New("deskripsi tidak boleh kosong")
+		}
+		pengaduan.Deskripsi = newDescription
 	}
 	if req.Lampiran != "" {
 		pengaduan.Lampiran = req.Lampiran
 	}
 
-	if err := s.repo.Update(pengaduan); err != nil {
+	descriptionChanged := req.Deskripsi != "" && strings.TrimSpace(req.Deskripsi) != originalDescription
+	// Analyze the new text before committing it. If AI is unavailable, delete
+	// the old result so the API exposes a pending state instead of stale data.
+	var analysis *dto.AIResponse
+	if descriptionChanged {
+		var err error
+		analysis, err = s.aiService.Analyze(dto.AIRequest{Deskripsi: strings.TrimSpace(req.Deskripsi)})
+		if err != nil {
+			log.Printf("analisis AI pengaduan %d tertunda setelah edit: %v", id, err)
+		}
+	}
+
+	if err := config.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&models.Pengaduan{}).Where("id = ?", id).Updates(map[string]interface{}{
+			"kategori_id": pengaduan.KategoriID,
+			"judul":       pengaduan.Judul,
+			"deskripsi":   pengaduan.Deskripsi,
+			"lampiran":    pengaduan.Lampiran,
+		}).Error; err != nil {
+			return err
+		}
+		if !descriptionChanged {
+			return nil
+		}
+		if err := tx.Where("pengaduan_id = ?", id).Delete(&models.HasilAI{}).Error; err != nil {
+			return err
+		}
+		if analysis != nil {
+			return tx.Create(&models.HasilAI{PengaduanID: uint(id), Sentimen: analysis.Sentimen, SkorSentimen: analysis.Score, Urgensi: analysis.Urgensi}).Error
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 

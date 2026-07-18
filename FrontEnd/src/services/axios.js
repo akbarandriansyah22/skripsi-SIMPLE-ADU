@@ -32,6 +32,13 @@ api.interceptors.response.use((response) => {
   }
 
   return response
+}, (error) => {
+  if (error.response?.status === 401) {
+    localStorage.removeItem('simpelToken')
+    localStorage.removeItem('simpelRole')
+    localStorage.removeItem('simpelUser')
+  }
+  return Promise.reject(error)
 })
 
 export default api

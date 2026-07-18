@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"strings"
 
 	dto "backend/DTO"
 	"backend/models"
@@ -26,6 +27,8 @@ func NewAuthService() *AuthService {
 // =======================================
 
 func (s *AuthService) Register(req dto.RegisterRequest) (*dto.LoginResponse, error) {
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	req.NIM = strings.TrimSpace(req.NIM)
 
 	// Cek Email
 	_, err := s.repo.GetUserByEmail(req.Email)
@@ -103,7 +106,11 @@ func (s *AuthService) Register(req dto.RegisterRequest) (*dto.LoginResponse, err
 
 func (s *AuthService) Login(req dto.LoginRequest) (*dto.LoginResponse, error) {
 
-	user, err := s.repo.GetUserByEmailOrNIM(req.Email)
+	identifier := strings.TrimSpace(req.Email)
+	if strings.Contains(identifier, "@") {
+		identifier = strings.ToLower(identifier)
+	}
+	user, err := s.repo.GetUserByEmailOrNIM(identifier)
 
 	if err != nil {
 		return nil, errors.New("email atau password salah")
@@ -119,7 +126,11 @@ func (s *AuthService) Login(req dto.LoginRequest) (*dto.LoginResponse, error) {
 		return nil, errors.New("email atau password salah")
 	}
 
-	token, err := utils.GenerateJWT(user.ID, user.Role)
+	role := utils.CanonicalRole(user.Role)
+	if role == "" {
+		return nil, errors.New("role akun tidak valid")
+	}
+	token, err := utils.GenerateJWT(user.ID, role)
 
 	if err != nil {
 		return nil, err
@@ -131,7 +142,7 @@ func (s *AuthService) Login(req dto.LoginRequest) (*dto.LoginResponse, error) {
 			ID:          user.ID,
 			NamaLengkap: user.NamaLengkap,
 			Email:       user.Email,
-			Role:        user.Role,
+			Role:        role,
 			IsActive:    user.IsActive,
 		},
 	}, nil
@@ -153,7 +164,7 @@ func (s *AuthService) Profile(userID uint) (*dto.UserResponse, error) {
 		ID:          user.ID,
 		NamaLengkap: user.NamaLengkap,
 		Email:       user.Email,
-		Role:        user.Role,
+		Role:        utils.CanonicalRole(user.Role),
 		IsActive:    user.IsActive,
 	}, nil
 }

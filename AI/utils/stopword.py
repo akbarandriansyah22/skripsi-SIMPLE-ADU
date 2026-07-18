@@ -7,6 +7,8 @@ from functools import lru_cache
 
 from nltk.corpus import stopwords
 
+from services.negation import NEGATION_WORDS
+
 logger = logging.getLogger(__name__)
 
 FALLBACK_INDONESIAN_STOPWORDS = {
@@ -77,4 +79,4 @@ def get_indonesian_stopwords() -> set[str]:
 def remove_stopwords(tokens: list[str]) -> list[str]:
     """Hapus stopword dari daftar token."""
     stopword_set = get_indonesian_stopwords()
-    return [token for token in tokens if token and token not in stopword_set]
+    return [token for token in tokens if token and (token in NEGATION_WORDS or token not in stopword_set)]
