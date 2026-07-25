@@ -114,11 +114,13 @@
             />
           </div>
         </div>
+        <p v-if="error" class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{{ error }}</p>
         <button
           type="submit"
+          :disabled="submitting"
           class="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 active:bg-blue-800 shadow-soft"
         >
-          Daftar Sekarang
+          {{ submitting ? "Mendaftarkan..." : "Daftar Sekarang" }}
         </button>
       </form>
       <div
@@ -149,8 +151,11 @@ import { useRouter } from "vue-router";
 import AuthLayout from "../../layouts/AuthLayout.vue";
 import authService from "../../services/auth.service";
 import { useToastStore } from "../../stores/toast";
+import { errorMessage } from "../../utils/api";
 
 const router = useRouter();
+const submitting = ref(false);
+const error = ref("");
 const form = ref({
   nama: "",
   nim: "",
@@ -171,16 +176,19 @@ const handleSubmit = async () => {
     !form.value.email.trim() ||
     !form.value.password.trim()
   ) {
-    toast.add({ type: "danger", message: "Lengkapi seluruh field wajib." });
+    error.value = "Lengkapi seluruh field wajib.";
     return;
   }
   if (form.value.password !== form.value.confirmPassword) {
-    toast.add({
-      type: "danger",
-      message: "Password dan konfirmasi tidak cocok.",
-    });
+    error.value = "Password dan konfirmasi tidak cocok.";
     return;
   }
+  if (form.value.password.length < 6) {
+    error.value = "Password minimal 6 karakter.";
+    return;
+  }
+  error.value = "";
+  submitting.value = true;
   try {
     await authService.register({
       nama_lengkap: form.value.nama,
@@ -193,11 +201,11 @@ const handleSubmit = async () => {
     });
     toast.add({ type: "success", message: "Registrasi berhasil. Silakan masuk." });
     router.push("/auth/login");
-  } catch (error) {
-    toast.add({
-      type: "danger",
-      message: error?.response?.data?.message || "Gagal mendaftar. Coba lagi.",
-    });
+  } catch (err) {
+    error.value = errorMessage(err, "Gagal mendaftar. Coba lagi.");
+    toast.add({ type: "danger", message: error.value });
+  } finally {
+    submitting.value = false;
   }
 };
 </script>

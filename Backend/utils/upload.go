@@ -12,42 +12,50 @@ import (
 	"github.com/google/uuid"
 )
 
-const maxUploadSize = 10 << 20
+const MaxUploadSize = 10 << 20
 
-var allowedUploadTypes = map[string]string{
-	"application/pdf": ".pdf",
-	"image/jpeg":      ".jpg",
-	"image/png":       ".png",
+var allowedUploadTypes = map[string]map[string]bool{
+	"application/pdf": {".pdf": true},
+	"image/jpeg":      {".jpg": true, ".jpeg": true},
+	"image/png":       {".png": true},
 }
 
-func UploadFile(c *gin.Context, formName string) (string, error) {
+type UploadedFile struct {
+	Path     string
+	Original string
+	MIMEType string
+	Size     int64
+}
+
+func UploadFileMetadata(c *gin.Context, formName string) (UploadedFile, error) {
+	var result UploadedFile
 
 	file, err := c.FormFile(formName)
 
 	if err != nil {
-		return "", err
+		return result, err
 	}
-	if file.Size <= 0 || file.Size > maxUploadSize {
-		return "", fmt.Errorf("ukuran lampiran harus antara 1 byte dan %d MB", maxUploadSize/(1<<20))
+	if file.Size <= 0 || file.Size > MaxUploadSize {
+		return result, fmt.Errorf("ukuran lampiran harus antara 1 byte dan %d MB", MaxUploadSize/(1<<20))
 	}
 	ext := strings.ToLower(filepath.Ext(file.Filename))
 	if ext == "." || strings.ContainsAny(file.Filename, `/\\`) {
-		return "", errors.New("nama file lampiran tidak valid")
+		return result, errors.New("nama file lampiran tidak valid")
 	}
 	opened, err := file.Open()
 	if err != nil {
-		return "", err
+		return result, err
 	}
 	defer opened.Close()
 	header := make([]byte, 512)
 	read, err := opened.Read(header)
-	if err != nil {
-		return "", err
+	if err != nil && read == 0 {
+		return result, err
 	}
 	mimeType := http.DetectContentType(header[:read])
-	allowedExt, ok := allowedUploadTypes[mimeType]
-	if !ok || allowedExt != ext {
-		return "", errors.New("tipe file lampiran tidak diizinkan")
+	allowedExts, ok := allowedUploadTypes[mimeType]
+	if !ok || !allowedExts[ext] {
+		return result, errors.New("tipe file lampiran tidak diizinkan")
 	}
 
 	uploadDir := os.Getenv("UPLOAD_DIR")
@@ -55,18 +63,23 @@ func UploadFile(c *gin.Context, formName string) (string, error) {
 		uploadDir = "uploads"
 	}
 	if err := os.MkdirAll(uploadDir, 0o750); err != nil {
-		return "", err
+		return result, err
 	}
 
-	filename := uuid.New().String() + allowedExt
+	filename := uuid.New().String() + ext
 
 	path := filepath.Join(uploadDir, filename)
 
 	if err := c.SaveUploadedFile(file, path); err != nil {
-		return "", err
+		return result, err
 	}
 
-	return filename, nil
+	return UploadedFile{Path: filename, Original: filepath.Base(file.Filename), MIMEType: mimeType, Size: file.Size}, nil
+}
+
+func UploadFile(c *gin.Context, formName string) (string, error) {
+	file, err := UploadFileMetadata(c, formName)
+	return file.Path, err
 }
 
 func DeleteUploadedFile(filename string) error {

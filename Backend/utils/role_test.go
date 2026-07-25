@@ -11,6 +11,9 @@ func TestCanonicalRole(t *testing.T) {
 		"pimpinan":          RolePimpinan,
 		"Pimpinan Fakultas": RolePimpinan,
 		"pimpinan_fakultas": RolePimpinan,
+		"admin sistem":      RoleAdminSistem,
+		"kasubag akademik":  RoleKasubag,
+		"kasubag sarpras":   RoleKasubag,
 	}
 	for input, expected := range tests {
 		if actual := CanonicalRole(input); actual != expected {

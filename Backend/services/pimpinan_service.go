@@ -54,6 +54,22 @@ func (s *PimpinanService) GetUrgensiTinggi() ([]dto.PengaduanResponse, error) {
 	return mapPengaduanResponses(items), nil
 }
 
+func (s *PimpinanService) GetPengaduan(id uint64) (*dto.PengaduanResponse, error) {
+	item, err := s.pengaduanRepo.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+	return mapPengaduanResponse(item), nil
+}
+
+func (s *PimpinanService) Monitoring() ([]dto.PengaduanResponse, error) {
+	items, err := s.pengaduanRepo.GetAll()
+	if err != nil {
+		return nil, err
+	}
+	return mapPengaduanResponses(items), nil
+}
+
 func (s *PimpinanService) CreateDisposisi(pimpinanID uint, pengaduanID uint64, req dto.DisposisiRequest) error {
 	pengaduan, err := s.pengaduanRepo.GetByID(pengaduanID)
 	if err != nil {
@@ -63,8 +79,18 @@ func (s *PimpinanService) CreateDisposisi(pimpinanID uint, pengaduanID uint64, r
 	if pengaduan.HasilAI == nil || !strings.EqualFold(pengaduan.HasilAI.Urgensi, "Tinggi") {
 		return errors.New("disposisi hanya dapat diberikan untuk urgensi Tinggi")
 	}
-	if !strings.EqualFold(pengaduan.Status, StatusDiteruskan) {
+	if !strings.EqualFold(pengaduan.Status, StatusMenungguDisposisi) {
 		return errors.New("pengaduan belum diteruskan oleh admin")
+	}
+	if strings.TrimSpace(req.Catatan) == "" {
+		return errors.New("catatan disposisi wajib diisi")
+	}
+	unit, err := repository.NewUnitRepository().GetByID(uint64(req.UnitID))
+	if err != nil || unit == nil {
+		return errors.New("unit disposisi tidak ditemukan")
+	}
+	if unit.NamaUnit != "Akademik" && unit.NamaUnit != "Sarana dan Prasarana" {
+		return errors.New("disposisi hanya dapat diarahkan ke unit Akademik atau Sarana dan Prasarana")
 	}
 	if _, err := s.disposisiRepo.GetByPengaduanID(pengaduanID); err == nil {
 		return errors.New("disposisi untuk pengaduan ini sudah ada")
@@ -79,13 +105,26 @@ func (s *PimpinanService) CreateDisposisi(pimpinanID uint, pengaduanID uint64, r
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
-		if err := tx.Create(&models.Disposisi{PengaduanID: pengaduan.ID, PimpinanID: pimpinanID, Catatan: strings.TrimSpace(req.Catatan)}).Error; err != nil {
+		unitID := req.UnitID
+		if err := tx.Create(&models.Disposisi{PengaduanID: pengaduan.ID, PimpinanID: pimpinanID, UnitID: unitID, Catatan: strings.TrimSpace(req.Catatan)}).Error; err != nil {
 			return err
 		}
-		if err := tx.Model(&models.Pengaduan{}).Where("id = ?", pengaduanID).Update("status", StatusDiproses).Error; err != nil {
+		if err := tx.Model(&models.Pengaduan{}).Where("id = ? AND status = ?", pengaduanID, StatusMenungguDisposisi).Updates(map[string]interface{}{"unit_id": unitID, "status": StatusDiteruskanUnit}).Error; err != nil {
 			return err
 		}
-		return tx.Create(&models.Notifikasi{UserID: pengaduan.UserID, Judul: "Disposisi Pengaduan", Isi: "Pengaduan " + pengaduan.KodeTiket + " telah mendapat disposisi pimpinan."}).Error
+		if err := recordStatusChange(tx, pengaduan.ID, pimpinanID, pengaduan.Status, StatusDiteruskanUnit, req.Catatan); err != nil {
+			return err
+		}
+		var kasubags []models.User
+		if err := tx.Where("role = ? AND unit_id = ? AND is_active = ?", "kasubag", unitID, true).Find(&kasubags).Error; err != nil {
+			return err
+		}
+		for _, kasubag := range kasubags {
+			if err := createNotification(tx, kasubag.ID, pengaduan.ID, "Aduan Diteruskan ke Unit", "Aduan "+pengaduan.KodeTiket+" telah didisposisikan ke unit Anda."); err != nil {
+				return err
+			}
+		}
+		return createNotification(tx, pengaduan.UserID, pengaduan.ID, "Disposisi Pengaduan", "Pengaduan "+pengaduan.KodeTiket+" telah mendapat disposisi pimpinan.")
 	})
 }
 
@@ -101,7 +140,7 @@ func (s *PimpinanService) urgensiTinggi() ([]models.Pengaduan, error) {
 
 	filtered := make([]models.Pengaduan, 0)
 	for _, item := range items {
-		if item.HasilAI != nil && strings.ToLower(item.HasilAI.Urgensi) == strings.ToLower("Tinggi") && strings.EqualFold(item.Status, StatusDiteruskan) {
+		if item.HasilAI != nil && strings.EqualFold(item.HasilAI.Urgensi, "Tinggi") && strings.EqualFold(item.Status, StatusDiteruskan) {
 			filtered = append(filtered, item)
 		}
 	}

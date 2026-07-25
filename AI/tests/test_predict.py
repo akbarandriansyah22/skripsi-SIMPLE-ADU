@@ -105,8 +105,11 @@ def test_predict_endpoint_wifi_lab_complaint_is_medium_urgency() -> None:
     data = predict(payload)
 
     assert data["tokens"] == ["wifi", "laboratorium", "lambat", "ganggu", "giat", "praktikum"]
-    assert data["score"] == 0
-    assert data["sentiment"] == "Netral"
+    # The project lexicon intentionally scores both "lambat" and "ganggu"
+    # as negative terms; urgency remains medium because both are medium-urgency
+    # keywords.
+    assert data["score"] == -6
+    assert data["sentiment"] == "Negatif"
     assert data["urgency"] == "Sedang"
 
 

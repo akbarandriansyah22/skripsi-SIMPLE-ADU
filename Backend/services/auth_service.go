@@ -37,7 +37,7 @@ func (s *AuthService) Register(req dto.RegisterRequest) (*dto.LoginResponse, err
 		return nil, errors.New("email sudah digunakan")
 	}
 
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
 
@@ -48,7 +48,7 @@ func (s *AuthService) Register(req dto.RegisterRequest) (*dto.LoginResponse, err
 		return nil, errors.New("NIM sudah terdaftar")
 	}
 
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
 
@@ -96,6 +96,8 @@ func (s *AuthService) Register(req dto.RegisterRequest) (*dto.LoginResponse, err
 			Email:       user.Email,
 			Role:        user.Role,
 			IsActive:    user.IsActive,
+			UnitID:      user.UnitID,
+			UnitName:    userUnitName(*user),
 		},
 	}, nil
 }
@@ -144,6 +146,8 @@ func (s *AuthService) Login(req dto.LoginRequest) (*dto.LoginResponse, error) {
 			Email:       user.Email,
 			Role:        role,
 			IsActive:    user.IsActive,
+			UnitID:      user.UnitID,
+			UnitName:    userUnitName(*user),
 		},
 	}, nil
 }
@@ -166,5 +170,14 @@ func (s *AuthService) Profile(userID uint) (*dto.UserResponse, error) {
 		Email:       user.Email,
 		Role:        utils.CanonicalRole(user.Role),
 		IsActive:    user.IsActive,
+		UnitID:      user.UnitID,
+		UnitName:    userUnitName(*user),
 	}, nil
+}
+
+func userUnitName(user models.User) string {
+	if user.Unit == nil {
+		return ""
+	}
+	return user.Unit.NamaUnit
 }

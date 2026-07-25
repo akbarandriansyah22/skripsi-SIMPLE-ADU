@@ -5,6 +5,8 @@ type UserResponse struct {
 	NamaLengkap string `json:"nama_lengkap"`
 	Email       string `json:"email"`
 	Role        string `json:"role"`
+	UnitID      *uint  `json:"unit_id,omitempty"`
+	UnitName    string `json:"unit_name,omitempty"`
 	IsActive    bool   `json:"is_active"`
 }
 

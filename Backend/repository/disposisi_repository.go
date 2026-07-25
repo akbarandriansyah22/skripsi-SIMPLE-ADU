@@ -49,6 +49,7 @@ func (r *disposisiRepository) GetByID(id uint64) (*models.Disposisi, error) {
 	err := r.db.
 		Preload("Pengaduan").
 		Preload("Pimpinan").
+		Preload("Unit").
 		First(&disposisi, id).Error
 
 	if err != nil {
@@ -70,6 +71,7 @@ func (r *disposisiRepository) GetByPengaduanID(pengaduanID uint64) (*models.Disp
 		Where("pengaduan_id = ?", pengaduanID).
 		Preload("Pengaduan").
 		Preload("Pimpinan").
+		Preload("Unit").
 		First(&disposisi).Error
 
 	if err != nil {
@@ -91,6 +93,7 @@ func (r *disposisiRepository) GetByPimpinanID(pimpinanID uint64) ([]models.Dispo
 		Where("pimpinan_id = ?", pimpinanID).
 		Preload("Pengaduan").
 		Preload("Pimpinan").
+		Preload("Unit").
 		Order("created_at DESC").
 		Find(&disposisi).Error
 
@@ -108,6 +111,7 @@ func (r *disposisiRepository) GetAll() ([]models.Disposisi, error) {
 	err := r.db.
 		Preload("Pengaduan").
 		Preload("Pimpinan").
+		Preload("Unit").
 		Order("created_at DESC").
 		Find(&disposisi).Error
 

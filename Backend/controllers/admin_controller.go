@@ -86,12 +86,37 @@ func (c *AdminController) AssignUnit(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.service.AssignUnit(id, req); err != nil {
+	adminID, ok := getUserID(ctx)
+	if !ok {
+		return
+	}
+	if err := c.service.AssignUnit(uint64(adminID), id, req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
 		return
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"success": true, "message": "Unit berhasil ditetapkan"})
+}
+
+func (c *AdminController) ValidatePengaduan(ctx *gin.Context) {
+	id, ok := getIDParam(ctx, "id")
+	if !ok {
+		return
+	}
+	adminID, ok := getUserID(ctx)
+	if !ok {
+		return
+	}
+	var req dto.ValidatePengaduanRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	if err := c.service.ValidatePengaduan(uint64(adminID), id, req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"success": true, "message": "Validasi pengaduan berhasil disimpan"})
 }
 
 func (c *AdminController) ForwardToPimpinan(ctx *gin.Context) {
@@ -100,7 +125,11 @@ func (c *AdminController) ForwardToPimpinan(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.service.ForwardToPimpinan(id); err != nil {
+	adminID, ok := getUserID(ctx)
+	if !ok {
+		return
+	}
+	if err := c.service.ForwardToPimpinan(uint64(adminID), id); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
 		return
 	}

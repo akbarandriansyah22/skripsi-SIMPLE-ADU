@@ -1,7 +1,9 @@
 package services
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -40,46 +42,105 @@ func (s *PengaduanService) Create(userID uint, req dto.CreatePengaduanRequest) (
 		return nil, errors.New("kategori pengaduan tidak ditemukan")
 	}
 
-	pengaduan := &models.Pengaduan{
-		KodeTiket:  utils.GenerateTicketCode(),
-		UserID:     userID,
-		KategoriID: req.KategoriID,
-		Judul:      req.Judul,
-		Deskripsi:  req.Deskripsi,
-		Lampiran:   req.Lampiran,
-		Status:     "Menunggu Verifikasi",
+	analysis, analysisErr := s.aiService.Analyze(dto.AIRequest{Deskripsi: strings.TrimSpace(req.Deskripsi)})
+	if analysisErr != nil {
+		log.Printf("analisis AI pengaduan tertunda: %v", analysisErr)
 	}
 
-	if err := config.DB.Create(pengaduan).Error; err != nil {
+	pengaduan := &models.Pengaduan{
+		KodeTiket:        utils.GenerateTicketCode(),
+		UserID:           userID,
+		KategoriID:       req.KategoriID,
+		Judul:            req.Judul,
+		Deskripsi:        req.Deskripsi,
+		Lampiran:         req.Lampiran,
+		LampiranNamaAsli: optionalString(req.LampiranNamaAsli),
+		LampiranMimeType: optionalString(req.LampiranMimeType),
+		LampiranUkuran:   optionalInt64(req.LampiranUkuran),
+		Status:           "Menunggu Verifikasi",
+	}
+
+	if err := config.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(pengaduan).Error; err != nil {
+			return err
+		}
+		if analysis != nil {
+			if err := tx.Create(hasilAIFromResponse(pengaduan.ID, analysis)).Error; err != nil {
+				return err
+			}
+		}
+		var admins []models.User
+		if err := tx.Where("role = ? AND is_active = ?", utils.RoleAdminFakultas, true).Find(&admins).Error; err != nil {
+			return err
+		}
+		for _, admin := range admins {
+			if err := createNotification(tx, admin.ID, pengaduan.ID, "Pengaduan Baru", "Pengaduan "+pengaduan.KodeTiket+" menunggu verifikasi."); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
-
-	if err := s.analyzeAndAttach(pengaduan); err != nil {
-		log.Printf("analisis AI pengaduan %d tertunda: %v", pengaduan.ID, err)
+	if analysis != nil {
+		pengaduan.HasilAI = hasilAIFromResponse(pengaduan.ID, analysis)
 	}
 
 	return mapPengaduanResponse(pengaduan), nil
 }
 
-func (s *PengaduanService) analyzeAndAttach(pengaduan *models.Pengaduan) error {
-	analysis, err := s.aiService.Analyze(dto.AIRequest{Deskripsi: pengaduan.Deskripsi})
-	if err != nil {
-		return err
+func hasilAIFromResponse(pengaduanID uint, analysis *dto.AIResponse) *models.HasilAI {
+	tokens, err := json.Marshal(analysis.Tokens)
+	if err != nil || len(tokens) == 0 {
+		tokens = []byte("[]")
 	}
-
-	hasilAI := &models.HasilAI{
-		PengaduanID:  pengaduan.ID,
-		Sentimen:     analysis.Sentimen,
-		SkorSentimen: analysis.Score,
-		Urgensi:      analysis.Urgensi,
+	positive, negative := scoreComponents(analysis.Score)
+	return &models.HasilAI{
+		PengaduanID:        pengaduanID,
+		CleanedText:        analysis.CleanedText,
+		Tokens:             models.JSONB(tokens),
+		SkorPositif:        &positive,
+		SkorNegatif:        &negative,
+		SkorSentimen:       analysis.Score,
+		Sentimen:           analysis.Sentimen,
+		PenjelasanSentimen: fmt.Sprintf("Skor sentimen sebesar %d berada %s 0 sehingga dikategorikan sebagai %s.", analysis.Score, scoreRelation(analysis.Score), analysis.Sentimen),
+		DetailSkor:         models.JSONB([]byte("[]")),
+		Urgensi:            analysis.Urgensi,
+		DasarUrgensi:       "",
 	}
+}
 
-	if err := s.hasilAIRepo.UpsertByPengaduanID(hasilAI); err != nil {
-		return err
+// The final database requires a non-null sign decomposition whose sum equals
+// skor_sentimen. This preserves the actual aggregate score without pretending
+// to know token weights that the AI response does not provide.
+func scoreComponents(score int) (int, int) {
+	if score >= 0 {
+		return score, 0
 	}
+	return 0, score
+}
 
-	pengaduan.HasilAI = hasilAI
-	return nil
+func scoreRelation(score int) string {
+	if score > 0 {
+		return "di atas"
+	}
+	if score < 0 {
+		return "di bawah"
+	}
+	return "sama dengan"
+}
+
+func stringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+func int64Value(value *int64) int64 {
+	if value == nil {
+		return 0
+	}
+	return *value
 }
 
 func (s *PengaduanService) GetByID(id uint64) (*dto.PengaduanResponse, error) {
@@ -99,6 +160,11 @@ func (s *PengaduanService) GetByIDForRole(id uint64, userID uint64, role string)
 
 	if isMahasiswaRole(role) && uint64(pengaduan.UserID) != userID {
 		return nil, ErrForbidden
+	}
+	if strings.EqualFold(role, utils.RoleKasubag) {
+		if !userBelongsToComplaintUnit(userID, pengaduan.UnitID) {
+			return nil, ErrForbidden
+		}
 	}
 
 	return mapPengaduanResponse(pengaduan), nil
@@ -121,6 +187,11 @@ func (s *PengaduanService) GetByKodeTiketForRole(kode string, userID uint64, rol
 
 	if isMahasiswaRole(role) && uint64(pengaduan.UserID) != userID {
 		return nil, ErrForbidden
+	}
+	if strings.EqualFold(role, utils.RoleKasubag) {
+		if !userBelongsToComplaintUnit(userID, pengaduan.UnitID) {
+			return nil, ErrForbidden
+		}
 	}
 
 	return mapPengaduanResponse(pengaduan), nil
@@ -194,10 +265,13 @@ func (s *PengaduanService) Update(userID uint64, id uint64, req dto.UpdatePengad
 
 	if err := config.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&models.Pengaduan{}).Where("id = ?", id).Updates(map[string]interface{}{
-			"kategori_id": pengaduan.KategoriID,
-			"judul":       pengaduan.Judul,
-			"deskripsi":   pengaduan.Deskripsi,
-			"lampiran":    pengaduan.Lampiran,
+			"kategori_id":        pengaduan.KategoriID,
+			"judul":              pengaduan.Judul,
+			"deskripsi":          pengaduan.Deskripsi,
+			"lampiran":           pengaduan.Lampiran,
+			"lampiran_nama_asli": pengaduan.LampiranNamaAsli,
+			"lampiran_mime_type": pengaduan.LampiranMimeType,
+			"lampiran_ukuran":    pengaduan.LampiranUkuran,
 		}).Error; err != nil {
 			return err
 		}
@@ -208,7 +282,7 @@ func (s *PengaduanService) Update(userID uint64, id uint64, req dto.UpdatePengad
 			return err
 		}
 		if analysis != nil {
-			return tx.Create(&models.HasilAI{PengaduanID: uint(id), Sentimen: analysis.Sentimen, SkorSentimen: analysis.Score, Urgensi: analysis.Urgensi}).Error
+			return tx.Create(hasilAIFromResponse(uint(id), analysis)).Error
 		}
 		return nil
 	}); err != nil {
@@ -232,22 +306,21 @@ func (s *PengaduanService) AddRespon(userID uint, role string, pengaduanID uint6
 		return ErrForbidden
 	}
 
-	if err := s.responRepo.Create(&models.ResponPengaduan{
-		PengaduanID: uint(pengaduanID),
-		UserID:      userID,
-		Pesan:       pesan,
+	if err := config.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&models.ResponPengaduan{
+			PengaduanID: uint(pengaduanID),
+			UserID:      userID,
+			Pesan:       pesan,
+		}).Error; err != nil {
+			return err
+		}
+		if !isMahasiswaRole(role) {
+			return createNotification(tx, pengaduan.UserID, pengaduan.ID, "Balasan Baru", "Ada balasan baru untuk aduan "+pengaduan.KodeTiket)
+		}
+		return nil
 	}); err != nil {
 		return err
 	}
-
-	if !isMahasiswaRole(role) {
-		_ = NewNotifikasiService().Create(
-			pengaduan.UserID,
-			"Balasan Baru dari Admin",
-			"Ada balasan baru untuk aduan "+pengaduan.KodeTiket,
-		)
-	}
-
 	return nil
 }
 
@@ -261,11 +334,19 @@ func (s *PengaduanService) Finish(userID uint64, id uint64) error {
 		return ErrForbidden
 	}
 
+	if !strings.EqualFold(pengaduan.Status, StatusDiproses) {
+		return errors.New("pengaduan hanya dapat diselesaikan saat Diproses")
+	}
 	now := time.Now()
-	pengaduan.Status = "Selesai"
-	pengaduan.TanggalSelesai = &now
-
-	return s.repo.Update(pengaduan)
+	return config.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&models.Pengaduan{}).Where("id = ? AND user_id = ? AND status = ?", id, userID, StatusDiproses).Updates(map[string]interface{}{"status": StatusSelesai, "tanggal_selesai": &now}).Error; err != nil {
+			return err
+		}
+		if err := recordStatusChange(tx, pengaduan.ID, uint(userID), pengaduan.Status, StatusSelesai, "Diselesaikan oleh mahasiswa"); err != nil {
+			return err
+		}
+		return createNotification(tx, pengaduan.UserID, pengaduan.ID, "Pengaduan Selesai", "Pengaduan "+pengaduan.KodeTiket+" telah diselesaikan.")
+	})
 }
 
 func mapPengaduanResponses(items []models.Pengaduan) []dto.PengaduanResponse {
@@ -279,17 +360,23 @@ func mapPengaduanResponses(items []models.Pengaduan) []dto.PengaduanResponse {
 
 func mapPengaduanResponse(pengaduan *models.Pengaduan) *dto.PengaduanResponse {
 	response := &dto.PengaduanResponse{
-		ID:         pengaduan.ID,
-		KodeTiket:  pengaduan.KodeTiket,
-		UserID:     pengaduan.UserID,
-		KategoriID: pengaduan.KategoriID,
-		UnitID:     pengaduan.UnitID,
-		Judul:      pengaduan.Judul,
-		Deskripsi:  pengaduan.Deskripsi,
-		Lampiran:   pengaduan.Lampiran,
-		Status:     pengaduan.Status,
-		AIStatus:   "pending",
-		CreatedAt:  pengaduan.CreatedAt,
+		ID:               pengaduan.ID,
+		KodeTiket:        pengaduan.KodeTiket,
+		UserID:           pengaduan.UserID,
+		KategoriID:       pengaduan.KategoriID,
+		UnitID:           pengaduan.UnitID,
+		Judul:            pengaduan.Judul,
+		Deskripsi:        pengaduan.Deskripsi,
+		Lampiran:         pengaduan.Lampiran,
+		LampiranNamaAsli: stringValue(pengaduan.LampiranNamaAsli),
+		LampiranMimeType: stringValue(pengaduan.LampiranMimeType),
+		LampiranUkuran:   int64Value(pengaduan.LampiranUkuran),
+		Status:           pengaduan.Status,
+		AIStatus:         "pending",
+		CreatedAt:        pengaduan.CreatedAt,
+	}
+	if pengaduan.Unit.ID != 0 {
+		response.Unit = &dto.UnitResponse{ID: pengaduan.Unit.ID, NamaUnit: pengaduan.Unit.NamaUnit}
 	}
 
 	if pengaduan.HasilAI != nil {
@@ -298,6 +385,18 @@ func mapPengaduanResponse(pengaduan *models.Pengaduan) *dto.PengaduanResponse {
 		response.Sentimen = pengaduan.HasilAI.Sentimen
 		response.Urgensi = pengaduan.HasilAI.Urgensi
 		response.AIStatus = "success"
+	}
+	if pengaduan.Validasi != nil {
+		response.Validasi = &dto.ValidasiResponse{ID: pengaduan.Validasi.ID, AdminFakultasID: pengaduan.Validasi.AdminFakultasID, StatusValidasi: pengaduan.Validasi.StatusValidasi, Catatan: pengaduan.Validasi.Catatan}
+	}
+	if pengaduan.Disposisi != nil {
+		response.Disposisi = &dto.DisposisiResponse{ID: pengaduan.Disposisi.ID, PimpinanID: pengaduan.Disposisi.PimpinanID, UnitID: pengaduan.Disposisi.UnitID, Catatan: pengaduan.Disposisi.Catatan}
+	}
+	if len(pengaduan.RiwayatStatus) > 0 {
+		response.RiwayatStatus = make([]dto.RiwayatStatusResponse, 0, len(pengaduan.RiwayatStatus))
+		for _, history := range pengaduan.RiwayatStatus {
+			response.RiwayatStatus = append(response.RiwayatStatus, dto.RiwayatStatusResponse{ID: history.ID, ChangedBy: history.ChangedBy, StatusLama: history.StatusLama, StatusBaru: history.StatusBaru, Catatan: history.Catatan, CreatedAt: history.CreatedAt})
+		}
 	}
 
 	if pengaduan.User.ID != 0 {
@@ -314,11 +413,15 @@ func mapPengaduanResponse(pengaduan *models.Pengaduan) *dto.PengaduanResponse {
 		response.ResponPengaduan = make([]dto.ResponPengaduanResponse, 0, len(pengaduan.ResponPengaduan))
 		for _, item := range pengaduan.ResponPengaduan {
 			respon := dto.ResponPengaduanResponse{
-				ID:          item.ID,
-				PengaduanID: item.PengaduanID,
-				UserID:      item.UserID,
-				Pesan:       item.Pesan,
-				CreatedAt:   item.CreatedAt,
+				ID:               item.ID,
+				PengaduanID:      item.PengaduanID,
+				UserID:           item.UserID,
+				Pesan:            item.Pesan,
+				Lampiran:         item.Lampiran,
+				LampiranNamaAsli: stringValue(item.LampiranNamaAsli),
+				LampiranMimeType: stringValue(item.LampiranMimeType),
+				LampiranUkuran:   int64Value(item.LampiranUkuran),
+				CreatedAt:        item.CreatedAt,
 			}
 			if item.User.ID != 0 {
 				respon.User = &dto.UserResponse{
@@ -338,4 +441,12 @@ func mapPengaduanResponse(pengaduan *models.Pengaduan) *dto.PengaduanResponse {
 
 func isMahasiswaRole(role string) bool {
 	return strings.EqualFold(role, "mahasiswa")
+}
+
+func userBelongsToComplaintUnit(userID uint64, complaintUnitID *uint) bool {
+	var user models.User
+	if err := config.DB.Select("unit_id").First(&user, userID).Error; err != nil || user.UnitID == nil || complaintUnitID == nil {
+		return false
+	}
+	return *user.UnitID == *complaintUnitID
 }

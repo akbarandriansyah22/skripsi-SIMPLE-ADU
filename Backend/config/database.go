@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 
-	"backend/models"
 	"backend/seed"
 	"backend/utils"
 
@@ -40,25 +39,7 @@ func ConnectDatabase() {
 
 	log.Println("✅ Database Connected")
 
-	if err := autoMigrate(); err != nil {
-		log.Fatalf("AutoMigrate gagal: %v", err)
+	if err := seed.SeedDemoData(DB); err != nil {
+		log.Fatalf("Seeder demo data gagal: %v", err)
 	}
-
-	if err := seed.SeedDemoUsers(DB); err != nil {
-		log.Fatalf("Seeder demo user gagal: %v", err)
-	}
-}
-
-func autoMigrate() error {
-	return DB.AutoMigrate(
-		&models.User{},
-		&models.Mahasiswa{},
-		&models.KategoriPengaduan{},
-		&models.Unit{},
-		&models.Pengaduan{},
-		&models.HasilAI{},
-		&models.Disposisi{},
-		&models.ResponPengaduan{},
-		&models.Notifikasi{},
-	)
 }

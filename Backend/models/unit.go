@@ -7,6 +7,7 @@ type Unit struct {
 
 	// Relasi
 	Pengaduan []Pengaduan `gorm:"foreignKey:UnitID" json:"-"`
+	Users     []User      `gorm:"foreignKey:UnitID" json:"-"`
 }
 
 func (Unit) TableName() string {

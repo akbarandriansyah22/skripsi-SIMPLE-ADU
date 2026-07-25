@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"strings"
+	"time"
 
 	dto "backend/DTO"
 	"backend/config"
@@ -69,31 +70,10 @@ func (s *AdminService) GetPengaduanByID(id uint64) (*dto.PengaduanResponse, erro
 }
 
 func (s *AdminService) UpdateStatus(id uint64, req dto.UpdateStatusRequest) error {
-	if req.Status == "" {
-		return errors.New("status wajib diisi")
-	}
-
-	if !isAllowedPengaduanStatus(req.Status) {
-		return errors.New("status tidak valid")
-	}
-
-	pengaduan, err := s.pengaduanRepo.GetByID(id)
-	if err != nil {
-		return err
-	}
-
-	if !isValidStatusTransition(pengaduan.Status, req.Status) {
-		return errors.New("transisi status tidak diizinkan")
-	}
-	return config.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&models.Pengaduan{}).Where("id = ?", id).Update("status", req.Status).Error; err != nil {
-			return err
-		}
-		return tx.Create(&models.Notifikasi{UserID: pengaduan.UserID, Judul: "Status Aduan Diperbarui", Isi: "Status aduan " + pengaduan.KodeTiket + " berubah menjadi " + req.Status}).Error
-	})
+	return errors.New("Admin Fakultas mengubah status melalui validasi atau penetapan unit")
 }
 
-func (s *AdminService) AssignUnit(id uint64, req dto.AssignUnitRequest) error {
+func (s *AdminService) AssignUnit(adminID, id uint64, req dto.AssignUnitRequest) error {
 	if _, err := s.unitRepo.GetByID(uint64(req.UnitID)); err != nil {
 		return errors.New("unit tidak ditemukan")
 	}
@@ -106,31 +86,64 @@ func (s *AdminService) AssignUnit(id uint64, req dto.AssignUnitRequest) error {
 	if !strings.EqualFold(pengaduan.Status, StatusMenunggu) {
 		return errors.New("unit hanya dapat ditetapkan saat menunggu verifikasi")
 	}
+	if pengaduan.Validasi == nil || !strings.EqualFold(pengaduan.Validasi.StatusValidasi, "Diterima") {
+		return errors.New("pengaduan harus diterima melalui validasi admin terlebih dahulu")
+	}
 	if pengaduan.HasilAI != nil && strings.EqualFold(pengaduan.HasilAI.Urgensi, "Tinggi") {
 		return errors.New("pengaduan urgensi Tinggi harus diteruskan ke pimpinan")
 	}
 	return config.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&models.Pengaduan{}).Where("id = ?", id).Updates(map[string]interface{}{"unit_id": req.UnitID, "status": StatusDiproses}).Error; err != nil {
+		if err := tx.Model(&models.Pengaduan{}).Where("id = ? AND status = ?", id, StatusMenunggu).Updates(map[string]interface{}{"unit_id": req.UnitID, "status": StatusDiteruskanUnit}).Error; err != nil {
 			return err
 		}
-		return tx.Create(&models.Notifikasi{UserID: pengaduan.UserID, Judul: "Pengaduan Mulai Diproses", Isi: "Pengaduan " + pengaduan.KodeTiket + " telah diteruskan ke unit terkait."}).Error
+		if err := recordStatusChange(tx, pengaduan.ID, uint(adminID), pengaduan.Status, StatusDiteruskanUnit, "Diteruskan oleh Admin Fakultas"); err != nil {
+			return err
+		}
+		var kasubags []models.User
+		if err := tx.Where("role = ? AND unit_id = ? AND is_active = ?", utils.RoleKasubag, req.UnitID, true).Find(&kasubags).Error; err != nil {
+			return err
+		}
+		for _, kasubag := range kasubags {
+			if err := createNotification(tx, kasubag.ID, pengaduan.ID, "Aduan Diteruskan ke Unit", "Aduan "+pengaduan.KodeTiket+" telah diteruskan ke unit Anda."); err != nil {
+				return err
+			}
+		}
+		return createNotification(tx, pengaduan.UserID, pengaduan.ID, "Aduan Diteruskan ke Unit", "Aduan "+pengaduan.KodeTiket+" telah diteruskan ke unit terkait.")
 	})
 }
 
-func (s *AdminService) ForwardToPimpinan(id uint64) error {
+func (s *AdminService) ForwardToPimpinan(adminID, id uint64) error {
 	pengaduan, err := s.pengaduanRepo.GetByID(id)
 	if err != nil {
 		return err
 	}
 
-	if pengaduan.HasilAI == nil || strings.ToLower(pengaduan.HasilAI.Urgensi) != strings.ToLower("Tinggi") {
+	if pengaduan.HasilAI == nil || !strings.EqualFold(pengaduan.HasilAI.Urgensi, "Tinggi") {
 		return errors.New("hanya pengaduan urgensi Tinggi yang diteruskan ke pimpinan")
 	}
-	if !strings.EqualFold(pengaduan.Status, StatusMenunggu) {
+	if !strings.EqualFold(pengaduan.Status, StatusMenunggu) && !strings.EqualFold(pengaduan.Status, StatusMenungguDisposisi) {
 		return errors.New("pengaduan hanya dapat diteruskan setelah verifikasi admin")
 	}
+	if pengaduan.Validasi == nil || !strings.EqualFold(pengaduan.Validasi.StatusValidasi, "Diterima") {
+		return errors.New("pengaduan harus diterima melalui validasi admin terlebih dahulu")
+	}
 	return config.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&models.Pengaduan{}).Where("id = ?", id).Update("status", StatusDiteruskan).Error; err != nil {
+		if strings.EqualFold(pengaduan.Status, StatusMenungguDisposisi) {
+			var pimpinan []models.User
+			if err := tx.Where("role = ? AND is_active = ?", utils.RolePimpinan, true).Find(&pimpinan).Error; err != nil {
+				return err
+			}
+			for _, user := range pimpinan {
+				if err := createNotification(tx, user.ID, pengaduan.ID, "Pengaduan Urgensi Tinggi", "Pengaduan "+pengaduan.KodeTiket+" menunggu disposisi."); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		if err := tx.Model(&models.Pengaduan{}).Where("id = ? AND status = ?", id, StatusMenunggu).Update("status", StatusMenungguDisposisi).Error; err != nil {
+			return err
+		}
+		if err := recordStatusChange(tx, pengaduan.ID, uint(adminID), pengaduan.Status, StatusMenungguDisposisi, "Menunggu disposisi pimpinan"); err != nil {
 			return err
 		}
 		var pimpinan []models.User
@@ -138,11 +151,73 @@ func (s *AdminService) ForwardToPimpinan(id uint64) error {
 			return err
 		}
 		for _, user := range pimpinan {
-			if err := tx.Create(&models.Notifikasi{UserID: user.ID, Judul: "Pengaduan Urgensi Tinggi", Isi: "Pengaduan " + pengaduan.KodeTiket + " menunggu disposisi."}).Error; err != nil {
+			if err := createNotification(tx, user.ID, pengaduan.ID, "Pengaduan Urgensi Tinggi", "Pengaduan "+pengaduan.KodeTiket+" menunggu disposisi."); err != nil {
 				return err
 			}
 		}
 		return nil
+	})
+}
+
+func (s *AdminService) ValidatePengaduan(adminID, id uint64, req dto.ValidatePengaduanRequest) error {
+	status := strings.TrimSpace(req.StatusValidasi)
+	if !strings.EqualFold(status, "Diterima") && !strings.EqualFold(status, "Ditolak") {
+		return errors.New("status validasi harus Diterima atau Ditolak")
+	}
+	pengaduan, err := s.pengaduanRepo.GetByID(id)
+	if err != nil {
+		return err
+	}
+	if !strings.EqualFold(pengaduan.Status, StatusMenunggu) && !strings.EqualFold(pengaduan.Status, StatusMenungguDisposisi) {
+		return errors.New("pengaduan tidak berada pada tahap validasi")
+	}
+	nextStatus := StatusMenunggu
+	if strings.EqualFold(status, "Ditolak") {
+		nextStatus = StatusDitolak
+	} else if pengaduan.HasilAI != nil && strings.EqualFold(pengaduan.HasilAI.Urgensi, "Tinggi") {
+		nextStatus = StatusMenungguDisposisi
+	}
+	var admin models.User
+	if err := config.DB.Select("id", "role").First(&admin, adminID).Error; err != nil || utils.CanonicalRole(admin.Role) != utils.RoleAdminFakultas {
+		return errors.New("validasi hanya dapat dilakukan oleh Admin Fakultas")
+	}
+	return config.DB.Transaction(func(tx *gorm.DB) error {
+		var validation models.ValidasiPengaduan
+		err := tx.Where("pengaduan_id = ?", id).First(&validation).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			validation = models.ValidasiPengaduan{PengaduanID: uint(id)}
+		} else if err != nil {
+			return err
+		}
+		validation.AdminFakultasID = uint(adminID)
+		validation.StatusValidasi = status
+		validation.Catatan = strings.TrimSpace(req.Catatan)
+		validation.ValidatedAt = time.Now()
+		if validation.ID == 0 {
+			if err := tx.Create(&validation).Error; err != nil {
+				return err
+			}
+		} else if err := tx.Save(&validation).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&models.Pengaduan{}).Where("id = ?", id).Update("status", nextStatus).Error; err != nil {
+			return err
+		}
+		if err := recordStatusChange(tx, pengaduan.ID, uint(adminID), pengaduan.Status, nextStatus, req.Catatan); err != nil {
+			return err
+		}
+		if nextStatus == StatusMenungguDisposisi {
+			var pimpinan []models.User
+			if err := tx.Where("role = ? AND is_active = ?", utils.RolePimpinan, true).Find(&pimpinan).Error; err != nil {
+				return err
+			}
+			for _, user := range pimpinan {
+				if err := createNotification(tx, user.ID, pengaduan.ID, "Pengaduan Urgensi Tinggi", "Pengaduan "+pengaduan.KodeTiket+" menunggu disposisi."); err != nil {
+					return err
+				}
+			}
+		}
+		return createNotification(tx, pengaduan.UserID, pengaduan.ID, "Validasi Aduan", "Aduan "+pengaduan.KodeTiket+" telah "+status+".")
 	})
 }
 
@@ -158,12 +233,7 @@ func (s *AdminService) ReanalyzeAI(id uint64) (*dto.ReanalyzeAIResponse, error) 
 		return nil, err
 	}
 
-	hasil := &models.HasilAI{
-		PengaduanID:  pengaduan.ID,
-		SkorSentimen: analysis.Score,
-		Sentimen:     analysis.Sentimen,
-		Urgensi:      analysis.Urgensi,
-	}
+	hasil := hasilAIFromResponse(pengaduan.ID, analysis)
 	if err := s.hasilAIRepo.UpsertByPengaduanID(hasil); err != nil {
 		return nil, err
 	}
@@ -183,7 +253,7 @@ func (s *AdminService) GetUnits() ([]models.Unit, error) {
 
 func isAllowedPengaduanStatus(status string) bool {
 	switch strings.ToLower(status) {
-	case strings.ToLower(StatusMenunggu), strings.ToLower(StatusDiproses), strings.ToLower(StatusSelesai), strings.ToLower(StatusDitolak), strings.ToLower(StatusDiteruskan):
+	case strings.ToLower(StatusMenunggu), strings.ToLower(StatusMenungguDisposisi), strings.ToLower(StatusDiteruskanUnit), strings.ToLower(StatusDiproses), strings.ToLower(StatusSelesai), strings.ToLower(StatusDitolak):
 		return true
 	default:
 		return false

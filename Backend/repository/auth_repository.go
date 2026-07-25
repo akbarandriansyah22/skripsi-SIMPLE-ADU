@@ -28,6 +28,7 @@ func (r *AuthRepository) GetUserByEmail(email string) (*models.User, error) {
 
 	err := r.DB.
 		Where("LOWER(email) = ?", strings.ToLower(strings.TrimSpace(email))).
+		Preload("Unit").
 		First(&user).Error
 
 	if err != nil {
@@ -51,6 +52,7 @@ func (r *AuthRepository) GetUserByEmailOrNIM(identifier string) (*models.User, e
 	}
 	err := r.DB.
 		Joins("LEFT JOIN mahasiswa ON mahasiswa.user_id = users.id").
+		Preload("Unit").
 		Where("LOWER(users.email) = ? OR mahasiswa.nim = ?", identifier, identifier).
 		First(&user).Error
 
@@ -100,6 +102,7 @@ func (r *AuthRepository) GetUserByID(id uint) (*models.User, error) {
 
 	err := r.DB.
 		Where("id = ?", id).
+		Preload("Unit").
 		First(&user).Error
 
 	if err != nil {

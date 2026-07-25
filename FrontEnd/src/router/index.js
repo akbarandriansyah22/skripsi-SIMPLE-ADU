@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LoginPage from '../pages/auth/Login.vue'
 import RegisterPage from '../pages/auth/Register.vue'
+import ForbiddenPage from '../pages/auth/Forbidden.vue'
 import MahasiswaDashboard from '../pages/mahasiswa/Dashboard.vue'
 import MahasiswaPengaduan from '../pages/mahasiswa/PengaduanSaya.vue'
 import MahasiswaBuatAduan from '../pages/mahasiswa/BuatPengaduan.vue'
@@ -15,25 +16,36 @@ import AdminNotifikasi from '../pages/admin/Notifikasi.vue'
 import PimpinanDashboard from '../pages/pimpinan/Dashboard.vue'
 import PimpinanValidasi from '../pages/pimpinan/ValidasiAduan.vue'
 import PimpinanDisposisi from '../pages/pimpinan/Disposisi.vue'
+import KasubagDashboard from '../pages/kasubag/Dashboard.vue'
+import KasubagPengaduan from '../pages/kasubag/PengaduanList.vue'
+import KasubagDetail from '../pages/kasubag/PengaduanDetail.vue'
+import AdminSistemDashboard from '../pages/admin-sistem/Dashboard.vue'
+import AdminSistemPengguna from '../pages/admin-sistem/Pengguna.vue'
 import { useAuthStore } from '../stores/auth'
 
 const routes = [
   { path: '/auth/login', name: 'Login', component: LoginPage, meta: { guest: true } },
   { path: '/auth/register', name: 'Register', component: RegisterPage, meta: { guest: true } },
+  { path: '/403', name: 'Forbidden', component: ForbiddenPage, meta: { requiresAuth: true } },
   { path: '/mahasiswa/dashboard', name: 'MahasiswaDashboard', component: MahasiswaDashboard, meta: { requiresAuth: true, role: 'mahasiswa' } },
   { path: '/mahasiswa/pengaduan', name: 'MahasiswaPengaduan', component: MahasiswaPengaduan, meta: { requiresAuth: true, role: 'mahasiswa' } },
   { path: '/mahasiswa/pengaduan/:id', name: 'MahasiswaDetail', component: MahasiswaDetail, props: true, meta: { requiresAuth: true, role: 'mahasiswa' } },
   { path: '/mahasiswa/kirim', name: 'MahasiswaBuatAduan', component: MahasiswaBuatAduan, meta: { requiresAuth: true, role: 'mahasiswa' } },
   { path: '/mahasiswa/notifikasi', name: 'MahasiswaNotifikasi', component: MahasiswaNotifikasi, meta: { requiresAuth: true, role: 'mahasiswa' } },
   { path: '/mahasiswa/profil', name: 'MahasiswaProfil', component: MahasiswaProfil, meta: { requiresAuth: true, role: 'mahasiswa' } },
-  { path: '/admin/dashboard', name: 'AdminDashboard', component: AdminDashboard, meta: { requiresAuth: true, role: 'admin' } },
-  { path: '/admin/pengaduan', name: 'AdminPengaduan', component: AdminPengaduan, meta: { requiresAuth: true, role: 'admin' } },
-  { path: '/admin/pengaduan/:id', name: 'AdminDetail', component: AdminDetail, props: true, meta: { requiresAuth: true, role: 'admin' } },
-  { path: '/admin/pengguna', name: 'AdminPengguna', component: AdminPengguna, meta: { requiresAuth: true, role: 'admin' } },
-  { path: '/admin/notifikasi', name: 'AdminNotifikasi', component: AdminNotifikasi, meta: { requiresAuth: true, role: 'admin' } },
+  { path: '/admin/dashboard', name: 'AdminDashboard', component: AdminDashboard, meta: { requiresAuth: true, role: 'admin_fakultas' } },
+  { path: '/admin/pengaduan', name: 'AdminPengaduan', component: AdminPengaduan, meta: { requiresAuth: true, role: 'admin_fakultas' } },
+  { path: '/admin/pengaduan/:id', name: 'AdminDetail', component: AdminDetail, props: true, meta: { requiresAuth: true, role: 'admin_fakultas' } },
+  { path: '/admin/pengguna', name: 'AdminPengguna', component: AdminPengguna, meta: { requiresAuth: true, role: 'admin_fakultas' } },
+  { path: '/admin/notifikasi', name: 'AdminNotifikasi', component: AdminNotifikasi, meta: { requiresAuth: true, role: 'admin_fakultas' } },
+  { path: '/admin-sistem/dashboard', name: 'AdminSistemDashboard', component: AdminSistemDashboard, meta: { requiresAuth: true, role: 'admin_sistem' } },
+  { path: '/admin-sistem/pengguna', name: 'AdminSistemPengguna', component: AdminSistemPengguna, meta: { requiresAuth: true, role: 'admin_sistem' } },
   { path: '/pimpinan/dashboard', name: 'PimpinanDashboard', component: PimpinanDashboard, meta: { requiresAuth: true, role: 'pimpinan' } },
   { path: '/pimpinan/validasi', name: 'PimpinanValidasi', component: PimpinanValidasi, meta: { requiresAuth: true, role: 'pimpinan' } },
   { path: '/pimpinan/disposisi', name: 'PimpinanDisposisi', component: PimpinanDisposisi, meta: { requiresAuth: true, role: 'pimpinan' } },
+  { path: '/kasubag/dashboard', name: 'KasubagDashboard', component: KasubagDashboard, meta: { requiresAuth: true, role: 'kasubag' } },
+  { path: '/kasubag/pengaduan', name: 'KasubagPengaduan', component: KasubagPengaduan, meta: { requiresAuth: true, role: 'kasubag' } },
+  { path: '/kasubag/pengaduan/:id', name: 'KasubagDetail', component: KasubagDetail, props: true, meta: { requiresAuth: true, role: 'kasubag' } },
   { path: '/:pathMatch(.*)*', redirect: '/auth/login' },
 ]
 
@@ -43,8 +55,10 @@ const router = createRouter({
 })
 
 const homeForRole = (auth) => {
-  if (auth.isAdmin) return '/admin/dashboard'
+  if (auth.isAdminSistem) return '/admin-sistem/dashboard'
+  if (auth.isAdminFakultas) return '/admin/dashboard'
   if (auth.isPimpinan) return '/pimpinan/dashboard'
+  if (auth.isKasubag) return '/kasubag/dashboard'
   return '/mahasiswa/dashboard'
 }
 
@@ -65,9 +79,14 @@ router.beforeEach((to) => {
     return homeForRole(auth)
   }
 
-  if (to.meta.role === 'mahasiswa' && !auth.isMahasiswa) return homeForRole(auth)
-  if (to.meta.role === 'admin' && !auth.isAdmin) return homeForRole(auth)
-  if (to.meta.role === 'pimpinan' && !auth.isPimpinan) return homeForRole(auth)
+  const allowed = {
+    mahasiswa: auth.isMahasiswa,
+    admin_fakultas: auth.isAdminFakultas,
+    admin_sistem: auth.isAdminSistem,
+    pimpinan: auth.isPimpinan,
+    kasubag: auth.isKasubag,
+  }
+  if (to.meta.role && !allowed[to.meta.role]) return '/403'
 
   return true
 })

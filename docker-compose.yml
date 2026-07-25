@@ -60,14 +60,15 @@ services:
         condition: service_healthy
 
     environment:
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: ${DB_NAME}
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB}
       JWT_SECRET: ${JWT_SECRET}
-      AI_SERVICE: ${AI_SERVICE}
-      PORT: ${PORT}
+      SEED_DEMO_PASSWORD: ${SEED_DEMO_PASSWORD:-change_me_demo_password}
+      AI_SERVICE: http://ai:8000
+      PORT: "8080"
       UPLOAD_DIR: ${UPLOAD_DIR:-/app/uploads}
 
     ports:
@@ -110,7 +111,9 @@ services:
 
 volumes:
   postgres_data:
+    name: simpel_adu_postgres_data
   uploads_data:
+    name: simpel_adu_uploads_data
 
 
 networks:

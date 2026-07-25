@@ -40,7 +40,10 @@ func main() {
 	routes.MahasiswaRoutes(r)
 	routes.PengaduanRoutes(r)
 	routes.AdminRoutes(r)
+	routes.AdminFakultasRoutes(r)
+	routes.AdminSistemRoutes(r)
 	routes.PimpinanRoutes(r)
+	routes.KasubagRoutes(r)
 	routes.NotifikasiRoutes(r)
 
 	port := os.Getenv("PORT")

@@ -41,7 +41,7 @@
           >
             <div class="flex items-center justify-between gap-3">
               <p class="font-semibold text-slate-900">
-                {{ item.title || item.judul || item.subject }}
+                {{ item.judul || item.title || item.subject || "Notifikasi" }}
               </p>
               <span
                 class="text-xs uppercase tracking-widest text-slate-500 font-medium"
@@ -49,7 +49,7 @@
               >
             </div>
             <p class="mt-1 text-sm text-slate-600">
-              {{ item.message || item.body || item.content }}
+              {{ item.isi || item.message || item.body || item.content }}
             </p>
             <div
               v-if="!item.read_at && !item.is_read"
@@ -83,10 +83,10 @@ const load = async () => {
   error.value = "";
   try {
     const res = await notifikasiService.mine();
-    notifications.value = res.data?.data || res.data || [];
+    notifications.value = Array.isArray(res.data) ? res.data : (res.data?.data || []);
   } catch (err) {
-    error.value = err?.message || "Server error";
-    toast.add({ type: "danger", message: "Gagal memuat notifikasi." });
+    error.value = err?.response?.data?.message || err?.message || "Server error";
+    toast.add({ type: "danger", message: error.value });
   } finally {
     loading.value = false;
   }

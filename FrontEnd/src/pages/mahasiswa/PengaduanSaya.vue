@@ -28,21 +28,15 @@
         >
           <thead class="bg-slate-50 text-slate-600">
             <tr>
-              <th
-                class="px-6 py-3 font-semibold text-xs uppercase tracking-wider"
-              >
-                ID Aduan
-              </th>
+              <th class="px-6 py-3 font-semibold text-xs uppercase tracking-wider">Nomor Tiket</th>
               <th
                 class="px-6 py-3 font-semibold text-xs uppercase tracking-wider"
               >
                 Judul
               </th>
-              <th
-                class="px-6 py-3 font-semibold text-xs uppercase tracking-wider"
-              >
-                Status
-              </th>
+              <th class="px-6 py-3 font-semibold text-xs uppercase tracking-wider">Kategori</th>
+              <th class="px-6 py-3 font-semibold text-xs uppercase tracking-wider">Urgensi</th>
+              <th class="px-6 py-3 font-semibold text-xs uppercase tracking-wider">Status</th>
               <th
                 class="px-6 py-3 font-semibold text-xs uppercase tracking-wider"
               >
@@ -57,17 +51,17 @@
           </thead>
           <tbody class="divide-y divide-slate-200 bg-white">
             <tr v-if="loading">
-              <td colspan="5" class="px-6 py-8 text-center text-slate-500">
+              <td colspan="7" class="px-6 py-8 text-center text-slate-500">
                 Memuat daftar aduan...
               </td>
             </tr>
             <tr v-else-if="error">
-              <td colspan="5" class="px-6 py-8 text-center text-red-600">
+              <td colspan="7" class="px-6 py-8 text-center text-red-600">
                 Gagal memuat data: {{ error }}
               </td>
             </tr>
             <tr v-else-if="!pengaduans.length">
-              <td colspan="5" class="px-6 py-8 text-center text-slate-500">
+              <td colspan="7" class="px-6 py-8 text-center text-slate-500">
                 Anda belum mengirimkan aduan.
               </td>
             </tr>
@@ -81,8 +75,10 @@
                 {{ p.kode_tiket || p.kode || "ADU-" + p.id }}
               </td>
               <td class="px-6 py-4 text-slate-700">{{ p.judul }}</td>
+              <td class="px-6 py-4 text-slate-600">{{ p.kategori?.nama || p.kategori?.nama_kategori || '-' }}</td>
+              <td class="px-6 py-4"><StatusBadge kind="urgency" :label="p.urgensi" /></td>
               <td class="px-6 py-4">
-                <span :class="statusBadgeClass(p.status)">{{ p.status }}</span>
+                <StatusBadge :label="p.status" />
               </td>
               <td class="px-6 py-4 text-slate-600">
                 {{ formatDate(p.created_at) }}
@@ -110,6 +106,8 @@ import { useRoute, useRouter } from "vue-router";
 import MahasiswaLayout from "../../layouts/MahasiswaLayout.vue";
 import pengaduanService from "../../services/pengaduan.service";
 import { useToastStore } from "../../stores/toast";
+import StatusBadge from "../../components/StatusBadge.vue";
+import { errorMessage, responseList, dateLabel } from "../../utils/api";
 
 const route = useRoute();
 const router = useRouter();
@@ -124,31 +122,8 @@ function openDetail(id) {
   router.push({ name: "MahasiswaDetail", params: { id: String(id) } });
 }
 
-function statusBadgeClass(status) {
-  if (!status)
-    return "rounded-full px-3 py-1 text-xs font-semibold inline-block bg-slate-100 text-slate-700";
-  const s = String(status).toLowerCase();
-  if (s.includes("selesai") || s.includes("done") || s.includes("seles"))
-    return "rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 inline-block";
-  if (
-    s.includes("proses") ||
-    s.includes("diproses") ||
-    s.includes("in progress")
-  )
-    return "rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700 inline-block";
-  if (s.includes("ditolak") || s.includes("tolak") || s.includes("rejected"))
-    return "rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700 inline-block";
-  return "rounded-full px-3 py-1 text-xs font-semibold inline-block bg-slate-100 text-slate-700";
-}
-
 function formatDate(iso) {
-  if (!iso) return "";
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString();
-  } catch {
-    return "";
-  }
+  return dateLabel(iso);
 }
 
 const load = async () => {
@@ -156,9 +131,9 @@ const load = async () => {
   error.value = "";
   try {
     const res = await pengaduanService.myPengaduan();
-    pengaduans.value = res.data?.data || res.data || [];
+    pengaduans.value = responseList(res);
   } catch (err) {
-    error.value = err?.message || "Server error";
+    error.value = errorMessage(err, "Daftar pengaduan tidak dapat dimuat.");
     toast.add({ type: "danger", message: error.value });
   } finally {
     loading.value = false;

@@ -23,6 +23,7 @@ class PredictRequest(BaseModel):
     @field_validator("deskripsi")
     @classmethod
     def deskripsi_not_blank(cls, value: str) -> str:
+        """Reject descriptions that contain only whitespace."""
         if not value.strip():
             raise ValueError("Deskripsi wajib diisi")
         return value

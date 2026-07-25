@@ -20,9 +20,11 @@ type AIService struct {
 }
 
 type aiPredictResponse struct {
-	Score     int    `json:"score"`
-	Sentiment string `json:"sentiment"`
-	Urgency   string `json:"urgency"`
+	CleanedText string   `json:"cleaned_text"`
+	Tokens      []string `json:"tokens"`
+	Score       int      `json:"score"`
+	Sentiment   string   `json:"sentiment"`
+	Urgency     string   `json:"urgency"`
 }
 
 func NewAIService() *AIService {
@@ -76,9 +78,11 @@ func (s *AIService) Analyze(req dto.AIRequest) (*dto.AIResponse, error) {
 	}
 
 	result := dto.AIResponse{
-		Score:    prediction.Score,
-		Sentimen: prediction.Sentiment,
-		Urgensi:  prediction.Urgency,
+		CleanedText: prediction.CleanedText,
+		Tokens:      prediction.Tokens,
+		Score:       prediction.Score,
+		Sentimen:    prediction.Sentiment,
+		Urgensi:     prediction.Urgency,
 	}
 
 	return &result, nil

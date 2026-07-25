@@ -43,9 +43,14 @@ func (r *hasilAIRepository) UpsertByPengaduanID(hasil *models.HasilAI) error {
 	return r.db.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "pengaduan_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{
+			"cleaned_text",
+			"tokens",
 			"skor_sentimen",
 			"sentimen",
+			"penjelasan_sentimen",
+			"detail_skor",
 			"urgensi",
+			"dasar_urgensi",
 			"updated_at",
 		}),
 	}).Create(hasil).Error

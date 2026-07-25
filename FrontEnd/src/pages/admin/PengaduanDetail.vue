@@ -68,6 +68,10 @@
               Analisis AI sedang menunggu pemrosesan.
             </p>
           </div>
+          <div v-if="detail?.validasi" class="rounded-lg border border-blue-200 bg-blue-50 p-5">
+            <p class="text-sm font-bold text-slate-950">Validasi Admin</p>
+            <p class="mt-2 text-sm text-slate-700">{{ detail.validasi.status_validasi }}{{ detail.validasi.catatan ? ` — ${detail.validasi.catatan}` : "" }}</p>
+          </div>
           <div class="rounded-lg border border-slate-200 bg-slate-50 p-5">
             <p class="text-sm font-bold text-slate-950">Bukti Pendukung</p>
             <div v-if="detail?.attachments?.length" class="mt-3 space-y-3">
@@ -184,21 +188,11 @@
         >
           <p class="text-sm font-bold text-slate-950">Aksi Admin</p>
           <div class="mt-5 space-y-4">
-            <select
-              v-model="statusForm"
-              class="w-full rounded-lg border border-slate-200 px-4 py-3 text-sm"
-            >
-              <option>Menunggu Verifikasi</option>
-              <option>Diproses</option>
-              <option>Selesai</option>
-              <option>Ditolak</option>
-            </select>
-            <button
-              @click="updateSelectedStatus()"
-              class="w-full rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 active:bg-emerald-800 shadow-soft"
-            >
-              Update Status
-            </button>
+			<textarea v-model="validationNote" rows="3" placeholder="Catatan validasi awal" class="w-full rounded-lg border border-slate-200 px-4 py-3 text-sm"></textarea>
+			<div class="grid grid-cols-2 gap-3">
+			  <button @click="validateComplaint('Diterima')" class="rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white">Terima Validasi</button>
+			  <button @click="validateComplaint('Ditolak')" class="rounded-lg bg-red-600 px-4 py-3 text-sm font-semibold text-white">Tolak Validasi</button>
+			</div>
             <select
               v-model.number="unitForm"
               class="w-full rounded-lg border border-slate-200 px-4 py-3 text-sm"
@@ -250,9 +244,9 @@ const detail = ref(null);
 const loading = ref(true);
 const error = ref("");
 const units = ref([]);
-const statusForm = ref("Diproses");
 const unitForm = ref(0);
 const responseText = ref("");
+const validationNote = ref("");
 const sendingResponse = ref(false);
 const reanalyzing = ref(false);
 const responses = computed(() => detail.value?.respon_pengaduan || detail.value?.responses || detail.value?.respon || detail.value?.comments || []);
@@ -289,7 +283,6 @@ const load = async () => {
   try {
     const res = await adminService.getPengaduanById(id);
     detail.value = res.data?.data || res.data || null;
-    statusForm.value = detail.value?.status || "Diproses";
     unitForm.value = detail.value?.unit_id || 0;
   } catch (err) {
     error.value = err?.message || "Server error";
@@ -327,6 +320,17 @@ async function handleForward() {
   }
 }
 
+async function validateComplaint(status) {
+  if (!detail.value) return;
+  try {
+    await adminService.validate(detail.value.id, { status_validasi: status, catatan: validationNote.value });
+    toast.add({ type: "success", message: "Validasi pengaduan tersimpan." });
+    load();
+  } catch {
+    toast.add({ type: "danger", message: "Validasi pengaduan gagal disimpan." });
+  }
+}
+
 async function handleReanalyze() {
   if (!detail.value) return;
   reanalyzing.value = true;
@@ -338,17 +342,6 @@ async function handleReanalyze() {
     toast.add({ type: "danger", message: "Gagal memperbarui analisis AI." });
   } finally {
     reanalyzing.value = false;
-  }
-}
-
-async function updateSelectedStatus() {
-  if (!detail.value) return;
-  try {
-    await adminService.updateStatus(detail.value.id, { status: statusForm.value });
-    toast.add({ type: "success", message: "Status diperbarui." });
-    load();
-  } catch (err) {
-    toast.add({ type: "danger", message: "Gagal memperbarui status." });
   }
 }
 

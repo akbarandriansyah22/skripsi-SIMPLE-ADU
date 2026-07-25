@@ -66,6 +66,13 @@
     >
       <div class="space-y-4">
         <div>
+		  <label class="block text-sm font-semibold text-slate-900">Unit Tujuan</label>
+		  <select v-model="form.unitId" class="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm">
+		    <option value="">Pilih unit</option>
+		    <option v-for="unit in units" :key="unit.id" :value="unit.id">{{ unit.nama_unit }}</option>
+		  </select>
+		</div>
+		<div>
           <label class="block text-sm font-semibold text-slate-900"
             >ID Pengaduan</label
           >
@@ -126,6 +133,7 @@ const toast = useToastStore();
 const form = ref({ pengaduanId: "", message: "" });
 const showModal = ref(false);
 const modalError = ref("");
+const units = ref([]);
 
 const load = async () => {
   loading.value = true;
@@ -141,7 +149,7 @@ const load = async () => {
 };
 
 function openModal() {
-  form.value = { pengaduanId: "", message: "" };
+  form.value = { pengaduanId: "", unitId: "", message: "" };
   modalError.value = "";
   showModal.value = true;
 }
@@ -156,9 +164,14 @@ async function submitDisposisi() {
     modalError.value = "Pesan disposisi wajib diisi.";
     return;
   }
+	if (!form.value.unitId) {
+	  modalError.value = "Unit tujuan wajib dipilih.";
+	  return;
+	}
 
   try {
     await pimpinanService.createDisposisi(form.value.pengaduanId, {
+	  unit_id: Number(form.value.unitId),
       catatan: form.value.message,
     });
     toast.add({ type: "success", message: "Disposisi ditambahkan." });
@@ -170,5 +183,11 @@ async function submitDisposisi() {
   }
 }
 
-onMounted(load);
+onMounted(async () => {
+  await load();
+  try {
+    const response = await pimpinanService.getUnits();
+    units.value = response.data?.data || response.data || [];
+  } catch {}
+});
 </script>

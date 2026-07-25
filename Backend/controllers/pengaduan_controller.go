@@ -65,22 +65,30 @@ func bindCreatePengaduanRequest(ctx *gin.Context) (dto.CreatePengaduanRequest, b
 	}
 
 	lampiran := ctx.PostForm("lampiran")
+	var upload utils.UploadedFile
 	if _, err := ctx.FormFile("lampiran"); err == nil {
-		uploaded, err := utils.UploadFile(ctx, "lampiran")
+		uploaded, err := utils.UploadFileMetadata(ctx, "lampiran")
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "gagal upload lampiran"})
 			return dto.CreatePengaduanRequest{}, false
 		}
-		lampiran = uploaded
+		upload = uploaded
+		lampiran = uploaded.Path
 	}
 
 	req := dto.CreatePengaduanRequest{
-		KategoriID: uint(kategoriID),
-		Judul:      ctx.PostForm("judul"),
-		Deskripsi:  ctx.PostForm("deskripsi"),
-		Lampiran:   lampiran,
+		KategoriID:       uint(kategoriID),
+		Judul:            ctx.PostForm("judul"),
+		Deskripsi:        ctx.PostForm("deskripsi"),
+		Lampiran:         lampiran,
+		LampiranNamaAsli: upload.Original,
+		LampiranMimeType: upload.MIMEType,
+		LampiranUkuran:   upload.Size,
 	}
 	if req.Judul == "" || req.Deskripsi == "" {
+		if upload.Path != "" {
+			_ = utils.DeleteUploadedFile(upload.Path)
+		}
 		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "judul dan deskripsi wajib diisi"})
 		return req, false
 	}

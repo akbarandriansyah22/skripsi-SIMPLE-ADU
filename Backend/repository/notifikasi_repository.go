@@ -3,6 +3,7 @@ package repository
 import (
 	"backend/config"
 	"backend/models"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -126,14 +127,14 @@ func (r *notifikasiRepository) MarkAsRead(id uint64) error {
 	return r.db.
 		Model(&models.Notifikasi{}).
 		Where("id = ?", id).
-		Update("is_read", true).Error
+		Updates(map[string]interface{}{"is_read": true, "read_at": time.Now()}).Error
 }
 
 func (r *notifikasiRepository) MarkAsReadByUserID(id uint64, userID uint64) error {
 	result := r.db.
 		Model(&models.Notifikasi{}).
 		Where("id = ? AND user_id = ?", id, userID).
-		Update("is_read", true)
+		Updates(map[string]interface{}{"is_read": true, "read_at": time.Now()})
 	if result.Error != nil {
 		return result.Error
 	}

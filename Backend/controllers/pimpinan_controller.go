@@ -39,6 +39,28 @@ func (c *PimpinanController) GetUrgensiTinggi(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"success": true, "message": "Pengaduan urgensi tinggi berhasil diambil", "data": result})
 }
 
+func (c *PimpinanController) GetPengaduan(ctx *gin.Context) {
+	id, ok := getIDParam(ctx, "id")
+	if !ok {
+		return
+	}
+	result, err := c.service.GetPengaduan(id)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"success": true, "data": result})
+}
+
+func (c *PimpinanController) Monitoring(ctx *gin.Context) {
+	result, err := c.service.Monitoring()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"success": true, "data": result})
+}
+
 func (c *PimpinanController) CreateDisposisi(ctx *gin.Context) {
 	userID, ok := getUserID(ctx)
 	if !ok {

@@ -12,11 +12,17 @@ export const useAuthStore = defineStore('auth', {
     isAuthenticated: (state) => !!state.token,
     normalizedRole: (state) => String(state.role || '').toLowerCase().replace(/\s+/g, '_'),
     isMahasiswa: (state) => String(state.role || '').toLowerCase() === 'mahasiswa',
+    isAdminSistem: (state) => String(state.role || '').toLowerCase().replace(/\s+/g, '_') === 'admin_sistem',
+    isAdminFakultas: (state) => {
+      const role = String(state.role || '').toLowerCase().replace(/\s+/g, '_')
+      return role === 'admin_fakultas' || role === 'petugas'
+    },
     isAdmin: (state) => {
       const role = String(state.role || '').toLowerCase().replace(/\s+/g, '_')
-      return role === 'petugas' || role.startsWith('admin')
+      return role === 'admin_sistem' || role === 'admin_fakultas' || role === 'petugas'
     },
     isPimpinan: (state) => String(state.role || '').toLowerCase().replace(/\s+/g, '_').startsWith('pimpinan'),
+    isKasubag: (state) => String(state.role || '').toLowerCase().replace(/\s+/g, '_') === 'kasubag',
   },
   actions: {
     async login(credentials) {

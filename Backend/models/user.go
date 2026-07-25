@@ -8,6 +8,7 @@ type User struct {
 	Email        string    `gorm:"column:email;size:150;unique;not null" json:"email"`
 	PasswordHash string    `gorm:"column:password_hash;type:text;not null" json:"-"`
 	Role         string    `gorm:"column:role;size:32;not null" json:"role"`
+	UnitID       *uint     `gorm:"column:unit_id;index" json:"unit_id,omitempty"`
 	IsActive     bool      `gorm:"column:is_active;default:true" json:"is_active"`
 	CreatedAt    time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt    time.Time `gorm:"column:updated_at" json:"updated_at"`
@@ -15,6 +16,7 @@ type User struct {
 	// Relasi
 	Pengaduan  []Pengaduan  `gorm:"foreignKey:UserID" json:"-"`
 	Notifikasi []Notifikasi `gorm:"foreignKey:UserID" json:"-"`
+	Unit       *Unit        `gorm:"foreignKey:UnitID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"unit,omitempty"`
 }
 
 func (User) TableName() string {

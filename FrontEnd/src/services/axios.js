@@ -37,6 +37,7 @@ api.interceptors.response.use((response) => {
     localStorage.removeItem('simpelToken')
     localStorage.removeItem('simpelRole')
     localStorage.removeItem('simpelUser')
+    window.dispatchEvent(new CustomEvent('simpel-auth-expired'))
   }
   return Promise.reject(error)
 })

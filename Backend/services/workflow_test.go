@@ -9,13 +9,14 @@ func TestComplaintStatusTransitionMatrix(t *testing.T) {
 		want bool
 	}{
 		{StatusMenunggu, StatusDitolak, true},
-		{StatusMenunggu, StatusDiteruskan, true},
-		{StatusMenunggu, StatusDiproses, true},
-		{StatusDiteruskan, StatusDiproses, true},
+		{StatusMenunggu, StatusMenungguDisposisi, true},
+		{StatusMenunggu, StatusDiteruskanUnit, true},
+		{StatusMenungguDisposisi, StatusDiteruskanUnit, true},
+		{StatusDiteruskanUnit, StatusDiproses, true},
 		{StatusDiproses, StatusSelesai, true},
 		{StatusDitolak, StatusDiproses, false},
 		{StatusSelesai, StatusDiproses, false},
-		{StatusDiteruskan, StatusSelesai, false},
+		{StatusMenungguDisposisi, StatusDiproses, false},
 	}
 	for _, test := range tests {
 		if got := isValidStatusTransition(test.from, test.to); got != test.want {

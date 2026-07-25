@@ -1,7 +1,9 @@
 package dto
 
 type AIResponse struct {
-	Score    int    `json:"score"`
-	Sentimen string `json:"sentimen"`
-	Urgensi  string `json:"urgensi"`
+	CleanedText string   `json:"cleaned_text"`
+	Tokens      []string `json:"tokens"`
+	Score       int      `json:"score"`
+	Sentimen    string   `json:"sentiment"`
+	Urgensi     string   `json:"urgency"`
 }

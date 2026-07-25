@@ -54,6 +54,9 @@ func (r *pengaduanRepository) GetByID(id uint64) (*models.Pengaduan, error) {
 		Preload("Unit").
 		Preload("HasilAI").
 		Preload("Disposisi").
+		Preload("Disposisi.Unit").
+		Preload("Validasi").
+		Preload("RiwayatStatus.User").
 		Preload("ResponPengaduan.User").
 		First(&pengaduan, id).Error
 
@@ -79,6 +82,9 @@ func (r *pengaduanRepository) GetByKodeTiket(kode string) (*models.Pengaduan, er
 		Preload("Unit").
 		Preload("HasilAI").
 		Preload("Disposisi").
+		Preload("Disposisi.Unit").
+		Preload("Validasi").
+		Preload("RiwayatStatus.User").
 		Preload("ResponPengaduan.User").
 		First(&pengaduan).Error
 
@@ -103,6 +109,9 @@ func (r *pengaduanRepository) GetByUserID(userID uint64) ([]models.Pengaduan, er
 		Preload("Unit").
 		Preload("HasilAI").
 		Preload("Disposisi").
+		Preload("Disposisi.Unit").
+		Preload("Validasi").
+		Preload("RiwayatStatus.User").
 		Order("created_at DESC").
 		Find(&pengaduan).Error
 
@@ -124,6 +133,9 @@ func (r *pengaduanRepository) GetByStatus(status string) ([]models.Pengaduan, er
 		Preload("Unit").
 		Preload("HasilAI").
 		Preload("Disposisi").
+		Preload("Disposisi.Unit").
+		Preload("Validasi").
+		Preload("RiwayatStatus.User").
 		Order("created_at DESC").
 		Find(&pengaduan).Error
 
@@ -144,6 +156,9 @@ func (r *pengaduanRepository) GetAll() ([]models.Pengaduan, error) {
 		Preload("Unit").
 		Preload("HasilAI").
 		Preload("Disposisi").
+		Preload("Disposisi.Unit").
+		Preload("Validasi").
+		Preload("RiwayatStatus.User").
 		Order("created_at DESC").
 		Find(&pengaduan).Error
 

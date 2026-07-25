@@ -50,11 +50,13 @@ func mapNotifikasiResponses(items []models.Notifikasi) []dto.NotifikasiResponse 
 	responses := make([]dto.NotifikasiResponse, 0, len(items))
 	for _, item := range items {
 		responses = append(responses, dto.NotifikasiResponse{
-			ID:        item.ID,
-			Judul:     item.Judul,
-			Isi:       item.Isi,
-			IsRead:    item.IsRead,
-			CreatedAt: item.CreatedAt,
+			ID:          item.ID,
+			PengaduanID: item.PengaduanID,
+			Judul:       item.Judul,
+			Isi:         item.Isi,
+			IsRead:      item.IsRead,
+			CreatedAt:   item.CreatedAt,
+			ReadAt:      item.ReadAt,
 		})
 	}
 

@@ -37,3 +37,12 @@ FrontEnd/.vite/
 uploads/
 Backend/uploads/
 *.log
+
+# Local database backups may contain user data and password hashes
+backups/
+
+# Environment files
+.env
+AI/.env
+Backend/.env
+FrontEnd/.env
