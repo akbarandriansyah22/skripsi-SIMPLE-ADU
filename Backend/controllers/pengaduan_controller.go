@@ -48,6 +48,16 @@ func (c *PengaduanController) Create(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, gin.H{"success": true, "message": message, "data": result})
 }
 
+func (c *PengaduanController) Categories(ctx *gin.Context) {
+	result, err := c.service.GetCategories()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"success": true, "message": "Kategori pengaduan berhasil diambil", "data": result})
+}
+
 func bindCreatePengaduanRequest(ctx *gin.Context) (dto.CreatePengaduanRequest, bool) {
 	if ctx.ContentType() != "multipart/form-data" && ctx.ContentType() != "application/x-www-form-urlencoded" {
 		var req dto.CreatePengaduanRequest
@@ -247,6 +257,62 @@ func (c *PengaduanController) Finish(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"success": true, "message": "Pengaduan selesai"})
+}
+
+func (c *PengaduanController) Attachment(ctx *gin.Context) {
+	userID, ok := getUserID(ctx)
+	if !ok {
+		return
+	}
+	role, ok := getRole(ctx)
+	if !ok {
+		return
+	}
+	id, ok := getIDParam(ctx, "id")
+	if !ok {
+		return
+	}
+	attachment, err := c.service.GetComplaintAttachment(uint64(userID), role, id)
+	if err != nil {
+		if errors.Is(err, service.ErrForbidden) {
+			ctx.JSON(http.StatusForbidden, gin.H{"success": false, "message": err.Error()})
+			return
+		}
+		ctx.JSON(http.StatusNotFound, gin.H{"success": false, "message": "lampiran tidak ditemukan"})
+		return
+	}
+	ctx.Header("Content-Type", attachment.ContentType)
+	ctx.File(attachment.Path)
+}
+
+func (c *PengaduanController) ResponseAttachment(ctx *gin.Context) {
+	userID, ok := getUserID(ctx)
+	if !ok {
+		return
+	}
+	role, ok := getRole(ctx)
+	if !ok {
+		return
+	}
+	complaintID, ok := getIDParam(ctx, "id")
+	if !ok {
+		return
+	}
+	responseID, ok := getIDParam(ctx, "responId")
+	if !ok {
+		return
+	}
+	attachment, err := c.service.GetResponseAttachment(uint64(userID), role, complaintID, responseID)
+	if err != nil {
+		if errors.Is(err, service.ErrForbidden) {
+			ctx.JSON(http.StatusForbidden, gin.H{"success": false, "message": err.Error()})
+			return
+		}
+		ctx.JSON(http.StatusNotFound, gin.H{"success": false, "message": "lampiran respons tidak ditemukan"})
+		return
+	}
+	ctx.Header("Content-Type", attachment.ContentType)
+	ctx.File(attachment.Path)
 }
 
 func getUserID(ctx *gin.Context) (uint, bool) {

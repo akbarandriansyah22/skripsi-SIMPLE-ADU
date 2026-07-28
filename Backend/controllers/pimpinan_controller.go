@@ -100,3 +100,13 @@ func (c *PimpinanController) MyDisposisi(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{"success": true, "message": "Disposisi berhasil diambil", "data": result})
 }
+
+func (c *PimpinanController) GetAssignmentUnits(ctx *gin.Context) {
+	result, err := c.service.GetAssignmentUnits()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"success": true, "message": "Unit penanganan berhasil diambil", "data": result})
+}

@@ -86,7 +86,6 @@
             <select v-model="nextStatus" :disabled="savingStatus || !statusOptions.length" class="w-full rounded-xl border border-slate-200 px-3 py-3 text-xs disabled:bg-slate-50"><option value="">{{ statusOptions.length ? 'Pilih status berikutnya' : 'Tidak ada aksi status tersedia' }}</option><option v-for="option in statusOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select>
             <button type="submit" :disabled="savingStatus || !nextStatus" class="w-full rounded-full bg-emerald-600 px-4 py-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{{ savingStatus ? 'Menyimpan...' : 'Simpan Perubahan' }}</button>
           </form>
-          <div v-if="item.status !== 'Selesai'" class="mt-4 border-t border-slate-100 pt-4"><button type="button" class="w-full rounded-full border border-red-200 px-4 py-3 text-xs font-semibold text-red-700 hover:bg-red-50" @click="showReturn = !showReturn">Kembalikan ke Admin</button><form v-if="showReturn" class="mt-3 space-y-2" @submit.prevent="returnToAdmin"><textarea v-model="returnReason" rows="3" required placeholder="Alasan pengembalian wajib diisi" class="w-full rounded-xl border border-slate-200 px-3 py-3 text-xs"></textarea><button type="submit" :disabled="savingStatus || !returnReason.trim()" class="w-full rounded-full bg-red-600 px-4 py-3 text-xs font-semibold text-white disabled:opacity-50">Konfirmasi Pengembalian</button></form></div>
         </article>
 
         <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -121,8 +120,7 @@ const replyError = ref('')
 const sending = ref(false)
 const savingStatus = ref(false)
 const nextStatus = ref('')
-const showReturn = ref(false)
-const returnReason = ref('')
+const attachmentUrls = ref({ complaint: '', responses: {} })
 
 const canReply = computed(() => item.value?.status === 'Diproses' && replyText.value.trim().length > 0)
 const conversation = computed(() => [...(item.value?.respon_pengaduan || [])].sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()).map((message) => ({ ...message, isMine: Number(message.user_id) === Number(auth.user?.id) })))
@@ -134,7 +132,7 @@ const statusOptions = computed(() => {
 })
 const attachment = computed(() => {
   const file = item.value?.lampiran
-  const url = item.value?.lampiran_url || item.value?.attachment_url || item.value?.file_url || ''
+  const url = attachmentUrls.value.complaint
   if (!file || !url) return null
   const type = String(item.value?.lampiran_mime_type || file).toLowerCase()
   return { name: item.value?.lampiran_nama_asli || file, url, isImage: ['image/jpeg', 'image/png'].includes(type) || /\.(jpe?g|png)$/i.test(type), isPdf: type === 'application/pdf' || /\.pdf$/i.test(type) }
@@ -143,12 +141,12 @@ const attachment = computed(() => {
 function ticket(value) { return value.kode_tiket || `ADU-${value.id}` }
 function senderName(message) { return message.user?.nama_lengkap || (message.isMine ? auth.user?.nama_lengkap : 'Pengguna') || 'Pengguna' }
 function senderRole(message) { const role = String(message.user?.role || '').toLowerCase(); if (message.isMine) return auth.user?.unit_name ? `Kasubag ${auth.user.unit_name}` : 'Kasubag'; if (role.includes('mahasiswa')) return 'Mahasiswa'; if (role.includes('admin')) return 'Admin Fakultas'; if (role.includes('pimpinan')) return 'Pimpinan Fakultas'; if (role.includes('kasubag')) return 'Kasubag'; return 'Petugas' }
-function responseAttachmentUrl(message) { return message.lampiran_url || message.attachment_url || message.file_url || '' }
+function responseAttachmentUrl(message) { return attachmentUrls.value.responses[message.id] || '' }
 function formatBytes(value) { if (!value) return ''; if (value < 1024) return `${value} B`; if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`; return `${(value / (1024 * 1024)).toFixed(1)} MB` }
 
 async function load() {
   loading.value = true; error.value = ''
-  try { item.value = responseData(await service.getPengaduanById(route.params.id)); nextStatus.value = '' }
+  try { item.value = responseData(await service.getPengaduanById(route.params.id)); nextStatus.value = ''; await loadAttachments() }
   catch (err) { error.value = errorMessage(err, 'Detail pengaduan tidak dapat dimuat.') }
   finally { loading.value = false }
 }
@@ -184,14 +182,22 @@ async function updateStatus() {
   finally { savingStatus.value = false }
 }
 
-async function returnToAdmin() {
-  if (!returnReason.value.trim()) return
-  savingStatus.value = true
-  try { await service.returnToAdmin(route.params.id, { alasan: returnReason.value.trim() }); toast.add({ type: 'success', message: 'Aduan dikembalikan ke Admin Fakultas.' }); showReturn.value = false; returnReason.value = ''; await load() }
-  catch (err) { toast.add({ type: 'danger', message: errorMessage(err, 'Aduan gagal dikembalikan.') }) }
-  finally { savingStatus.value = false }
+async function loadAttachments() {
+  const next = { complaint: '', responses: {} }
+  if (item.value?.lampiran_url) {
+    try { next.complaint = URL.createObjectURL(await service.getAttachment(item.value.lampiran_url)) } catch {}
+  }
+  await Promise.all(conversation.value.map(async (message) => {
+    if (!message.lampiran_url) return
+    try { next.responses[message.id] = URL.createObjectURL(await service.getAttachment(message.lampiran_url)) } catch {}
+  }))
+  attachmentUrls.value = next
 }
 
 onMounted(load)
-onBeforeUnmount(clearReplyFile)
+onBeforeUnmount(() => {
+  clearReplyFile()
+  if (attachmentUrls.value.complaint) URL.revokeObjectURL(attachmentUrls.value.complaint)
+  Object.values(attachmentUrls.value.responses).forEach((url) => URL.revokeObjectURL(url))
+})
 </script>

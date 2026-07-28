@@ -21,6 +21,8 @@ import KasubagPengaduan from '../pages/kasubag/PengaduanList.vue'
 import KasubagDetail from '../pages/kasubag/PengaduanDetail.vue'
 import AdminSistemDashboard from '../pages/admin-sistem/Dashboard.vue'
 import AdminSistemPengguna from '../pages/admin-sistem/Pengguna.vue'
+import AdminSistemUnit from '../pages/admin-sistem/Unit.vue'
+import AdminSistemKategori from '../pages/admin-sistem/Kategori.vue'
 import { useAuthStore } from '../stores/auth'
 
 const routes = [
@@ -40,6 +42,8 @@ const routes = [
   { path: '/admin/notifikasi', name: 'AdminNotifikasi', component: AdminNotifikasi, meta: { requiresAuth: true, role: 'admin_fakultas' } },
   { path: '/admin-sistem/dashboard', name: 'AdminSistemDashboard', component: AdminSistemDashboard, meta: { requiresAuth: true, role: 'admin_sistem' } },
   { path: '/admin-sistem/pengguna', name: 'AdminSistemPengguna', component: AdminSistemPengguna, meta: { requiresAuth: true, role: 'admin_sistem' } },
+  { path: '/admin-sistem/unit', name: 'AdminSistemUnit', component: AdminSistemUnit, meta: { requiresAuth: true, role: 'admin_sistem' } },
+  { path: '/admin-sistem/kategori', name: 'AdminSistemKategori', component: AdminSistemKategori, meta: { requiresAuth: true, role: 'admin_sistem' } },
   { path: '/pimpinan/dashboard', name: 'PimpinanDashboard', component: PimpinanDashboard, meta: { requiresAuth: true, role: 'pimpinan' } },
   { path: '/pimpinan/validasi', name: 'PimpinanValidasi', component: PimpinanValidasi, meta: { requiresAuth: true, role: 'pimpinan' } },
   { path: '/pimpinan/disposisi', name: 'PimpinanDisposisi', component: PimpinanDisposisi, meta: { requiresAuth: true, role: 'pimpinan' } },

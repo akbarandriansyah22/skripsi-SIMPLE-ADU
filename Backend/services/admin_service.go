@@ -74,8 +74,8 @@ func (s *AdminService) UpdateStatus(id uint64, req dto.UpdateStatusRequest) erro
 }
 
 func (s *AdminService) AssignUnit(adminID, id uint64, req dto.AssignUnitRequest) error {
-	if _, err := s.unitRepo.GetByID(uint64(req.UnitID)); err != nil {
-		return errors.New("unit tidak ditemukan")
+	if _, err := s.unitRepo.GetWithActiveKasubagByID(uint64(req.UnitID)); err != nil {
+		return errors.New("unit tujuan tidak memiliki Kasubag aktif")
 	}
 
 	pengaduan, err := s.pengaduanRepo.GetByID(id)
@@ -249,6 +249,10 @@ func (s *AdminService) ReanalyzeAI(id uint64) (*dto.ReanalyzeAIResponse, error) 
 
 func (s *AdminService) GetUnits() ([]models.Unit, error) {
 	return s.unitRepo.GetAll()
+}
+
+func (s *AdminService) GetAssignmentUnits() ([]models.Unit, error) {
+	return s.unitRepo.GetWithActiveKasubag()
 }
 
 func isAllowedPengaduanStatus(status string) bool {

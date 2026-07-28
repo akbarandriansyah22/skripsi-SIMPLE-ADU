@@ -193,15 +193,17 @@
 			  <button @click="validateComplaint('Diterima')" class="rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white">Terima Validasi</button>
 			  <button @click="validateComplaint('Ditolak')" class="rounded-lg bg-red-600 px-4 py-3 text-sm font-semibold text-white">Tolak Validasi</button>
 			</div>
+            <label class="block text-sm font-semibold text-slate-900">Pilih unit penanganan</label>
             <select
               v-model.number="unitForm"
               class="w-full rounded-lg border border-slate-200 px-4 py-3 text-sm"
             >
-              <option :value="0">Pilih unit tujuan</option>
+              <option :value="0">Pilih unit penanganan</option>
               <option v-for="unit in units" :key="unit.id" :value="unit.id">
                 {{ unit.nama_unit || unit.nama || unit.name }}
               </option>
             </select>
+            <p class="text-xs leading-relaxed text-slate-500">Pengaduan akan diteruskan kepada Kasubag sesuai unit yang dipilih.</p>
             <button
               @click="assignSelectedUnit()"
               :disabled="!unitForm"

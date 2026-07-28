@@ -37,6 +37,7 @@ var demoUsers = []demoUser{
 var demoCategories = []models.KategoriPengaduan{
 	{Nama: "Akademik", Deskripsi: "Layanan akademik dan perkuliahan"},
 	{Nama: "Fasilitas", Deskripsi: "Sarana dan prasarana fakultas"},
+	{Nama: "Administrasi", Deskripsi: "Layanan administrasi, surat-menyurat, legalisasi, pembayaran, dan dokumen mahasiswa"},
 	{Nama: "Kemahasiswaan", Deskripsi: "Layanan kemahasiswaan"},
 }
 

@@ -8,6 +8,6 @@ const assignUnit = (id, payload) => api.patch(`/api/admin/pengaduan/${id}/unit`,
 const validate = (id, payload) => api.patch(`/api/admin/pengaduan/${id}/validasi`, payload)
 const forwardToPimpinan = (id) => api.patch(`/api/admin/pengaduan/${id}/forward`)
 const reanalyzeAI = (id) => api.post(`/api/admin/pengaduan/${id}/reanalyze`)
-const getUnits = () => api.get('/api/admin/unit')
+const getUnits = () => api.get('/api/admin/unit/penanganan')
 
 export default { dashboard, getAllPengaduan, getPengaduanById, updateStatus, assignUnit, validate, forwardToPimpinan, reanalyzeAI, getUnits }

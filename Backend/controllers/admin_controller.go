@@ -161,3 +161,13 @@ func (c *AdminController) GetUnits(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{"success": true, "message": "Unit berhasil diambil", "data": result})
 }
+
+func (c *AdminController) GetAssignmentUnits(ctx *gin.Context) {
+	result, err := c.service.GetAssignmentUnits()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"success": true, "message": "Unit penanganan berhasil diambil", "data": result})
+}

@@ -3,6 +3,7 @@ package repository
 import (
 	"backend/config"
 	"backend/models"
+	"backend/utils"
 
 	"gorm.io/gorm"
 )
@@ -12,6 +13,8 @@ type UnitRepository interface {
 	GetByID(id uint64) (*models.Unit, error)
 	GetByNama(nama string) (*models.Unit, error)
 	GetAll() ([]models.Unit, error)
+	GetWithActiveKasubag() ([]models.Unit, error)
+	GetWithActiveKasubagByID(id uint64) (*models.Unit, error)
 	Update(unit *models.Unit) error
 	Delete(id uint64) error
 }
@@ -77,6 +80,33 @@ func (r *unitRepository) GetAll() ([]models.Unit, error) {
 	err := r.db.Order("nama_unit ASC").Find(&units).Error
 
 	return units, err
+}
+
+// GetWithActiveKasubag returns only units that have at least one active
+// Kasubag account. DISTINCT keeps a unit from appearing more than once when
+// multiple Kasubag accounts are assigned to it.
+func (r *unitRepository) GetWithActiveKasubag() ([]models.Unit, error) {
+	var units []models.Unit
+	err := r.db.Model(&models.Unit{}).
+		Joins("JOIN users ON users.unit_id = unit.id").
+		Where("LOWER(TRIM(users.role)) = ? AND users.is_active = ?", utils.RoleKasubag, true).
+		Distinct("unit.id, unit.nama_unit, unit.email").
+		Order("unit.nama_unit ASC").
+		Find(&units).Error
+	return units, err
+}
+
+func (r *unitRepository) GetWithActiveKasubagByID(id uint64) (*models.Unit, error) {
+	var unit models.Unit
+	err := r.db.Model(&models.Unit{}).
+		Joins("JOIN users ON users.unit_id = unit.id").
+		Where("unit.id = ? AND LOWER(TRIM(users.role)) = ? AND users.is_active = ?", id, utils.RoleKasubag, true).
+		Distinct("unit.id, unit.nama_unit, unit.email").
+		First(&unit).Error
+	if err != nil {
+		return nil, err
+	}
+	return &unit, nil
 }
 
 // =======================

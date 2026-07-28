@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	"backend/migrations"
 	"backend/seed"
 	"backend/utils"
 
@@ -38,6 +39,10 @@ func ConnectDatabase() {
 	DB = db
 
 	log.Println("✅ Database Connected")
+
+	if err := migrations.Run(DB); err != nil {
+		log.Fatalf("Migration gagal: %v", err)
+	}
 
 	if err := seed.SeedDemoData(DB); err != nil {
 		log.Fatalf("Seeder demo data gagal: %v", err)

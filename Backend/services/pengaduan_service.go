@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -35,6 +38,10 @@ func NewPengaduanService() *PengaduanService {
 		responRepo:   repository.NewResponRepository(),
 		aiService:    NewAIService(),
 	}
+}
+
+func (s *PengaduanService) GetCategories() ([]models.KategoriPengaduan, error) {
+	return s.kategoriRepo.GetAll()
 }
 
 func (s *PengaduanService) Create(userID uint, req dto.CreatePengaduanRequest) (*dto.PengaduanResponse, error) {
@@ -375,6 +382,12 @@ func mapPengaduanResponse(pengaduan *models.Pengaduan) *dto.PengaduanResponse {
 		AIStatus:         "pending",
 		CreatedAt:        pengaduan.CreatedAt,
 	}
+	if pengaduan.Lampiran != "" {
+		response.LampiranURL = fmt.Sprintf("/api/pengaduan/%d/lampiran", pengaduan.ID)
+	}
+	if pengaduan.Kategori.ID != 0 {
+		response.Kategori = &dto.KategoriResponse{ID: pengaduan.Kategori.ID, Nama: pengaduan.Kategori.Nama}
+	}
 	if pengaduan.Unit.ID != 0 {
 		response.Unit = &dto.UnitResponse{ID: pengaduan.Unit.ID, NamaUnit: pengaduan.Unit.NamaUnit}
 	}
@@ -423,6 +436,9 @@ func mapPengaduanResponse(pengaduan *models.Pengaduan) *dto.PengaduanResponse {
 				LampiranUkuran:   int64Value(item.LampiranUkuran),
 				CreatedAt:        item.CreatedAt,
 			}
+			if item.Lampiran != "" {
+				respon.LampiranURL = fmt.Sprintf("/api/pengaduan/%d/respon/%d/lampiran", pengaduan.ID, item.ID)
+			}
 			if item.User.ID != 0 {
 				respon.User = &dto.UserResponse{
 					ID:          item.User.ID,
@@ -437,6 +453,76 @@ func mapPengaduanResponse(pengaduan *models.Pengaduan) *dto.PengaduanResponse {
 	}
 
 	return response
+}
+
+type ProtectedAttachment struct {
+	Path        string
+	ContentType string
+}
+
+func (s *PengaduanService) GetComplaintAttachment(userID uint64, role string, complaintID uint64) (*ProtectedAttachment, error) {
+	complaint, err := s.repo.GetByID(complaintID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.assertAttachmentAccess(complaint, userID, role); err != nil {
+		return nil, err
+	}
+	return protectedAttachment(complaint.Lampiran)
+}
+
+func (s *PengaduanService) GetResponseAttachment(userID uint64, role string, complaintID, responseID uint64) (*ProtectedAttachment, error) {
+	complaint, err := s.repo.GetByID(complaintID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.assertAttachmentAccess(complaint, userID, role); err != nil {
+		return nil, err
+	}
+	response, err := s.responRepo.GetByID(responseID)
+	if err != nil {
+		return nil, err
+	}
+	if uint64(response.PengaduanID) != complaintID {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return protectedAttachment(response.Lampiran)
+}
+
+func (s *PengaduanService) assertAttachmentAccess(complaint *models.Pengaduan, userID uint64, role string) error {
+	switch utils.CanonicalRole(role) {
+	case utils.RoleMahasiswa:
+		if uint64(complaint.UserID) != userID {
+			return ErrForbidden
+		}
+	case utils.RoleKasubag:
+		if !userBelongsToComplaintUnit(userID, complaint.UnitID) {
+			return ErrForbidden
+		}
+	case utils.RoleAdminFakultas, utils.RolePimpinan:
+		// These roles are scoped to the faculty/application as in the existing API.
+	default:
+		return ErrForbidden
+	}
+	return nil
+}
+
+func protectedAttachment(filename string) (*ProtectedAttachment, error) {
+	path, err := utils.ResolveUploadedFile(filename)
+	if err != nil {
+		return nil, gorm.ErrRecordNotFound
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	header := make([]byte, 512)
+	read, err := file.Read(header)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, err
+	}
+	return &ProtectedAttachment{Path: path, ContentType: http.DetectContentType(header[:read])}, nil
 }
 
 func isMahasiswaRole(role string) bool {

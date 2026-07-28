@@ -66,11 +66,12 @@
     >
       <div class="space-y-4">
         <div>
-		  <label class="block text-sm font-semibold text-slate-900">Unit Tujuan</label>
+		  <label class="block text-sm font-semibold text-slate-900">Pilih unit penanganan</label>
 		  <select v-model="form.unitId" class="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm">
-		    <option value="">Pilih unit</option>
+		    <option value="">Pilih unit penanganan</option>
 		    <option v-for="unit in units" :key="unit.id" :value="unit.id">{{ unit.nama_unit }}</option>
 		  </select>
+		  <p class="mt-2 text-xs leading-relaxed text-slate-500">Pengaduan akan diteruskan kepada Kasubag sesuai unit yang dipilih.</p>
 		</div>
 		<div>
           <label class="block text-sm font-semibold text-slate-900"
@@ -108,9 +109,10 @@
           <button
             type="button"
             @click="submitDisposisi"
+            :disabled="submitting"
             class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
           >
-            Simpan
+            {{ submitting ? "Menyimpan..." : "Simpan" }}
           </button>
         </div>
       </template>
@@ -124,16 +126,18 @@ import PimpinanLayout from "../../layouts/PimpinanLayout.vue";
 import Modal from "../../components/Modal.vue";
 import pimpinanService from "../../services/pimpinan.service";
 import { useToastStore } from "../../stores/toast";
+import { errorMessage } from "../../utils/api";
 
 const disposisi = ref([]);
 const loading = ref(true);
 const error = ref("");
 const toast = useToastStore();
 
-const form = ref({ pengaduanId: "", message: "" });
+const form = ref({ pengaduanId: "", unitId: "", message: "" });
 const showModal = ref(false);
 const modalError = ref("");
 const units = ref([]);
+const submitting = ref(false);
 
 const load = async () => {
   loading.value = true;
@@ -156,7 +160,8 @@ function openModal() {
 
 async function submitDisposisi() {
   modalError.value = "";
-  if (!form.value.pengaduanId.trim()) {
+  if (submitting.value) return;
+  if (!String(form.value.pengaduanId).trim()) {
     modalError.value = "ID pengaduan wajib diisi.";
     return;
   }
@@ -169,17 +174,21 @@ async function submitDisposisi() {
 	  return;
 	}
 
+  submitting.value = true;
   try {
     await pimpinanService.createDisposisi(form.value.pengaduanId, {
 	  unit_id: Number(form.value.unitId),
-      catatan: form.value.message,
+      catatan: form.value.message.trim(),
     });
     toast.add({ type: "success", message: "Disposisi ditambahkan." });
     showModal.value = false;
-    load();
+    await load();
+    await pimpinanService.myDisposisi();
   } catch (err) {
-    toast.add({ type: "danger", message: "Gagal menambahkan disposisi." });
-    modalError.value = err?.message || "Server error";
+    modalError.value = errorMessage(err, "Gagal menambahkan disposisi.");
+    toast.add({ type: "danger", message: modalError.value });
+  } finally {
+    submitting.value = false;
   }
 }
 

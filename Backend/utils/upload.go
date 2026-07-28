@@ -96,3 +96,28 @@ func DeleteUploadedFile(filename string) error {
 	}
 	return err
 }
+
+// ResolveUploadedFile returns a path inside UPLOAD_DIR for a database-stored
+// filename. Stored upload names are intentionally basename-only.
+func ResolveUploadedFile(filename string) (string, error) {
+	if filename == "" || filepath.Base(filename) != filename || filename == "." || filename == ".." {
+		return "", errors.New("nama file lampiran tidak valid")
+	}
+	uploadDir := os.Getenv("UPLOAD_DIR")
+	if uploadDir == "" {
+		uploadDir = "uploads"
+	}
+	baseDir, err := filepath.Abs(uploadDir)
+	if err != nil {
+		return "", err
+	}
+	path, err := filepath.Abs(filepath.Join(baseDir, filename))
+	if err != nil {
+		return "", err
+	}
+	rel, err := filepath.Rel(baseDir, path)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", errors.New("path lampiran tidak valid")
+	}
+	return path, nil
+}

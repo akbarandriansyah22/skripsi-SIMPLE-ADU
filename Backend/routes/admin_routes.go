@@ -24,6 +24,7 @@ func AdminRoutes(r *gin.Engine) {
 		api.POST("/pengaduan/:id/teruskan-unit", admin.AssignUnit)
 		api.POST("/pengaduan/:id/teruskan-pimpinan", admin.ForwardToPimpinan)
 		api.POST("/pengaduan/:id/reanalyze", admin.ReanalyzeAI)
+		api.GET("/unit/penanganan", admin.GetAssignmentUnits)
 	}
 	// Unit lookup is read-only and remains available to the legacy Pimpinan UI.
 	legacyUnits := r.Group("/api/admin")
@@ -43,5 +44,6 @@ func AdminFakultasRoutes(r *gin.Engine) {
 		api.POST("/pengaduan/:id/teruskan-unit", admin.AssignUnit)
 		api.POST("/pengaduan/:id/teruskan-pimpinan", admin.ForwardToPimpinan)
 		api.GET("/units", admin.GetUnits)
+		api.GET("/unit/penanganan", admin.GetAssignmentUnits)
 	}
 }

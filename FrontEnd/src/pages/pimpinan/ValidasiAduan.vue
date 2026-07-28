@@ -64,14 +64,25 @@
             </p>
           </div>
           <div class="mt-6 space-y-4">
-            <label class="block text-sm font-semibold text-slate-900"
-              >Jawaban Resmi / Keputusan Tindak Lanjut</label
+            <label class="block text-sm font-semibold text-slate-900">Pilih unit penanganan</label>
+            <select
+              v-model="unitId"
+              :disabled="submitting"
+              class="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-soft focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20"
             >
+              <option value="">Pilih unit penanganan</option>
+              <option v-for="unit in units" :key="unit.id" :value="unit.id">
+                {{ unit.nama_unit }}
+              </option>
+            </select>
+            <p class="text-xs leading-relaxed text-slate-500">Pengaduan akan diteruskan kepada Kasubag sesuai unit yang dipilih.</p>
+            <label class="block text-sm font-semibold text-slate-900">Catatan Disposisi</label>
             <textarea
               rows="6"
-              v-model="answer"
+              v-model="catatan"
+              :disabled="submitting"
               class="w-full rounded-lg border border-slate-200 bg-white px-4 py-4 text-sm text-slate-900 shadow-soft transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20"
-              placeholder="Ketik jawaban resmi yang akan disampaikan ke pelapor..."
+              placeholder="Ketik catatan disposisi untuk unit tujuan..."
             ></textarea>
           </div>
         </div>
@@ -98,34 +109,25 @@
             class="rounded-xl bg-white p-5 shadow-soft ring-1 ring-slate-200"
           >
             <button
-              @click="handleReturn()"
-              :disabled="!selected || !answer.trim()"
-              class="w-full rounded-lg px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
-              :class="
-                selected && answer.trim()
-                  ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  : 'bg-slate-100 text-slate-400'
-              "
-            >
-              Kembalikan ke Admin
-            </button>
-            <button
-              @click="handlePublish()"
-              :disabled="!selected || !answer.trim()"
+              @click="submitDisposisi"
+              :disabled="submitting || !selected || !unitId || !catatan.trim()"
               class="mt-3 w-full rounded-lg px-4 py-3 text-sm font-semibold text-white shadow-soft transition disabled:cursor-not-allowed disabled:bg-emerald-300 disabled:text-white"
               :class="
-                selected && answer.trim()
+                selected && unitId && catatan.trim() && !submitting
                   ? 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800'
                   : 'bg-emerald-300'
               "
             >
-              Validasi & Publikasikan
+              {{ submitting ? "Mengirim..." : "Disposisikan ke Unit" }}
             </button>
             <p v-if="!selected" class="mt-3 text-xs text-slate-500">
-              Pilih aduan urgent untuk memulai proses validasi.
+              Pilih aduan urgensi tinggi terlebih dahulu.
             </p>
-            <p v-else-if="!answer.trim()" class="mt-3 text-xs text-slate-500">
-              Isi jawaban resmi sebelum mengirim keputusan.
+            <p v-else-if="!unitId" class="mt-3 text-xs text-slate-500">
+              Pilih unit penanganan sebelum mengirim disposisi.
+            </p>
+            <p v-else-if="!catatan.trim()" class="mt-3 text-xs text-slate-500">
+              Isi catatan disposisi sebelum mengirim.
             </p>
           </div>
         </div>
@@ -139,12 +141,16 @@ import { ref, onMounted } from "vue";
 import PimpinanLayout from "../../layouts/PimpinanLayout.vue";
 import pimpinanService from "../../services/pimpinan.service";
 import { useToastStore } from "../../stores/toast";
+import { errorMessage } from "../../utils/api";
 
 const loading = ref(true);
 const error = ref("");
 const urgent = ref([]);
 const selected = ref(null);
-const answer = ref("");
+const catatan = ref("");
+const unitId = ref("");
+const units = ref([]);
+const submitting = ref(false);
 const toast = useToastStore();
 
 const load = async () => {
@@ -155,60 +161,63 @@ const load = async () => {
     urgent.value = res.data?.data || res.data || [];
     selected.value = urgent.value[0] || null;
   } catch (err) {
-    error.value = err?.message || "Server error";
+    error.value = errorMessage(err, "Daftar aduan urgensi tinggi tidak dapat dimuat.");
     toast.add({ type: "danger", message: error.value });
   } finally {
     loading.value = false;
   }
 };
 
-async function handleReturn() {
+function selectReport(report) {
+  selected.value = report;
+  unitId.value = "";
+  catatan.value = "";
+}
+
+async function submitDisposisi() {
   if (!selected.value) {
     toast.add({ type: "danger", message: "Pilih aduan terlebih dahulu." });
     return;
   }
-  if (!answer.value.trim()) {
+  if (!unitId.value) {
+    toast.add({ type: "danger", message: "Pilih unit penanganan terlebih dahulu." });
+    return;
+  }
+  if (!catatan.value.trim()) {
     toast.add({
       type: "danger",
-      message: "Isi jawaban resmi sebelum mengirim keputusan.",
+      message: "Isi catatan disposisi sebelum mengirim.",
     });
     return;
   }
+  if (submitting.value) return;
+  submitting.value = true;
   try {
     await pimpinanService.createDisposisi(selected.value.id, {
-      catatan: answer.value,
+      unit_id: Number(unitId.value),
+      catatan: catatan.value.trim(),
     });
-    toast.add({ type: "success", message: "Dikembalikan ke admin." });
-    answer.value = "";
-    load();
+    toast.add({ type: "success", message: "Disposisi berhasil dikirim." });
+    unitId.value = "";
+    catatan.value = "";
+    await Promise.all([load(), pimpinanService.myDisposisi()]);
   } catch (err) {
-    toast.add({ type: "danger", message: "Gagal mengembalikan." });
+    toast.add({ type: "danger", message: errorMessage(err, "Disposisi gagal dikirim.") });
+  } finally {
+    submitting.value = false;
   }
 }
 
-async function handlePublish() {
-  if (!selected.value) {
-    toast.add({ type: "danger", message: "Pilih aduan terlebih dahulu." });
-    return;
-  }
-  if (!answer.value.trim()) {
-    toast.add({
-      type: "danger",
-      message: "Isi jawaban resmi sebelum mengirim keputusan.",
-    });
-    return;
-  }
+onMounted(async () => {
+  await Promise.all([load(), loadUnits()]);
+});
+
+async function loadUnits() {
   try {
-    await pimpinanService.createDisposisi(selected.value.id, {
-      catatan: answer.value,
-    });
-    toast.add({ type: "success", message: "Validasi dan publikasi berhasil." });
-    answer.value = "";
-    load();
+    const res = await pimpinanService.getUnits();
+    units.value = res.data?.data || res.data || [];
   } catch (err) {
-    toast.add({ type: "danger", message: "Gagal mempublikasikan." });
+    toast.add({ type: "danger", message: errorMessage(err, "Unit tujuan tidak dapat dimuat.") });
   }
 }
-
-onMounted(load);
 </script>

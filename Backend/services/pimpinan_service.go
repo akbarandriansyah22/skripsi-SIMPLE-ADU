@@ -15,12 +15,14 @@ import (
 type PimpinanService struct {
 	pengaduanRepo repository.PengaduanRepository
 	disposisiRepo repository.DisposisiRepository
+	unitRepo      repository.UnitRepository
 }
 
 func NewPimpinanService() *PimpinanService {
 	return &PimpinanService{
 		pengaduanRepo: repository.NewPengaduanRepository(),
 		disposisiRepo: repository.NewDisposisiRepository(),
+		unitRepo:      repository.NewUnitRepository(),
 	}
 }
 
@@ -85,12 +87,9 @@ func (s *PimpinanService) CreateDisposisi(pimpinanID uint, pengaduanID uint64, r
 	if strings.TrimSpace(req.Catatan) == "" {
 		return errors.New("catatan disposisi wajib diisi")
 	}
-	unit, err := repository.NewUnitRepository().GetByID(uint64(req.UnitID))
+	unit, err := s.unitRepo.GetWithActiveKasubagByID(uint64(req.UnitID))
 	if err != nil || unit == nil {
-		return errors.New("unit disposisi tidak ditemukan")
-	}
-	if unit.NamaUnit != "Akademik" && unit.NamaUnit != "Sarana dan Prasarana" {
-		return errors.New("disposisi hanya dapat diarahkan ke unit Akademik atau Sarana dan Prasarana")
+		return errors.New("unit tujuan tidak memiliki Kasubag aktif")
 	}
 	if _, err := s.disposisiRepo.GetByPengaduanID(pengaduanID); err == nil {
 		return errors.New("disposisi untuk pengaduan ini sudah ada")
@@ -130,6 +129,10 @@ func (s *PimpinanService) CreateDisposisi(pimpinanID uint, pengaduanID uint64, r
 
 func (s *PimpinanService) GetDisposisiByPimpinan(pimpinanID uint64) ([]models.Disposisi, error) {
 	return s.disposisiRepo.GetByPimpinanID(pimpinanID)
+}
+
+func (s *PimpinanService) GetAssignmentUnits() ([]models.Unit, error) {
+	return s.unitRepo.GetWithActiveKasubag()
 }
 
 func (s *PimpinanService) urgensiTinggi() ([]models.Pengaduan, error) {

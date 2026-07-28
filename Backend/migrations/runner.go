@@ -20,9 +20,6 @@ func Run(db *gorm.DB) error {
 	if err := db.Table("schema_migrations").Where("version = ?", version).Count(&count).Error; err != nil {
 		return err
 	}
-	if count > 0 {
-		return nil
-	}
 	sql, err := files.ReadFile(version)
 	if err != nil {
 		return err
@@ -35,9 +32,11 @@ func Run(db *gorm.DB) error {
 		tx.Rollback()
 		return err
 	}
-	if err := tx.Exec("INSERT INTO schema_migrations (version) VALUES (?)", version).Error; err != nil {
-		tx.Rollback()
-		return err
+	if count == 0 {
+		if err := tx.Exec("INSERT INTO schema_migrations (version) VALUES (?)", version).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
 	}
 	return tx.Commit().Error
 }

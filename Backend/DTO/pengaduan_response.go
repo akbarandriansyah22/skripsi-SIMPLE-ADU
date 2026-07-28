@@ -7,6 +7,7 @@ type PengaduanResponse struct {
 	KodeTiket        string                    `json:"kode_tiket"`
 	UserID           uint                      `json:"user_id"`
 	KategoriID       uint                      `json:"kategori_id"`
+	Kategori         *KategoriResponse         `json:"kategori,omitempty"`
 	UnitID           *uint                     `json:"unit_id,omitempty"`
 	Unit             *UnitResponse             `json:"unit,omitempty"`
 	User             *UserResponse             `json:"user,omitempty"`
@@ -16,6 +17,7 @@ type PengaduanResponse struct {
 	LampiranNamaAsli string                    `json:"lampiran_nama_asli,omitempty"`
 	LampiranMimeType string                    `json:"lampiran_mime_type,omitempty"`
 	LampiranUkuran   int64                     `json:"lampiran_ukuran,omitempty"`
+	LampiranURL      string                    `json:"lampiran_url,omitempty"`
 	Status           string                    `json:"status"`
 	SkorSentimen     *int                      `json:"skor_sentimen,omitempty"`
 	Sentimen         string                    `json:"sentimen,omitempty"`
@@ -26,6 +28,11 @@ type PengaduanResponse struct {
 	RiwayatStatus    []RiwayatStatusResponse   `json:"riwayat_status_pengaduan,omitempty"`
 	ResponPengaduan  []ResponPengaduanResponse `json:"respon_pengaduan,omitempty"`
 	CreatedAt        time.Time                 `json:"created_at"`
+}
+
+type KategoriResponse struct {
+	ID   uint   `json:"id"`
+	Nama string `json:"nama"`
 }
 
 type UnitResponse struct {
@@ -73,6 +80,7 @@ type ResponPengaduanResponse struct {
 	LampiranNamaAsli string        `json:"lampiran_nama_asli,omitempty"`
 	LampiranMimeType string        `json:"lampiran_mime_type,omitempty"`
 	LampiranUkuran   int64         `json:"lampiran_ukuran,omitempty"`
+	LampiranURL      string        `json:"lampiran_url,omitempty"`
 	User             *UserResponse `json:"user,omitempty"`
 	CreatedAt        time.Time     `json:"created_at"`
 }

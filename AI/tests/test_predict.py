@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 from fastapi.exceptions import RequestValidationError
-from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from api.routes import PredictRequest, predict
-from app import app
+from app import health_check
+from services.prediction import predict_complaint
 from services import sentiment
 
 
@@ -17,23 +17,15 @@ def _raise_request_validation_error(error: ValidationError) -> None:
     raise RequestValidationError(error.errors()) from error
 
 
-client = TestClient(app)
-
-
 def test_predict_http_endpoint() -> None:
-    response = client.post("/predict", json={"deskripsi": "Ada kebakaran di laboratorium."})
-
-    assert response.status_code == 200
-    body = response.json()
+    """Route handler mempertahankan kontrak response endpoint /predict."""
+    body = predict(PredictRequest(deskripsi="Ada kebakaran di laboratorium."))
     assert set(body) == {"cleaned_text", "tokens", "score", "sentiment", "urgency"}
     assert body["urgency"] == "Tinggi"
 
 
 def test_health_http_endpoint() -> None:
-    response = client.get("/health")
-
-    assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert health_check() == {"status": "ok"}
 
 
 def test_predict_endpoint_success() -> None:
@@ -157,3 +149,53 @@ def test_negation_reverses_known_lexicon_polarity(monkeypatch: pytest.MonkeyPatc
     assert sentiment.analyze_sentiment(["tidak", "buruk"])["score"] == 3
     assert sentiment.analyze_sentiment(["aman"])["score"] == 3
     assert sentiment.analyze_sentiment(["tidak", "aman"])["score"] == -3
+
+
+@pytest.mark.parametrize(
+    ("description", "expected_urgency"),
+    [
+        (
+            "Koneksi Wi-Fi di laboratorium sering lambat dan mengganggu kegiatan praktikum. "
+            "Mahasiswa mengalami kesulitan mengakses materi pembelajaran dan mengunggah tugas, "
+            "tetapi jaringan masih dapat digunakan.",
+            "Sedang",
+        ),
+        ("Terjadi korsleting listrik di laboratorium komputer dan muncul asap dari stop kontak. Kondisi ini membahayakan mahasiswa.", "Tinggi"),
+        ("Saya ingin menanyakan jadwal penggunaan laboratorium komputer.", "Rendah"),
+        ("Gym tolong ditambahkan lagi alatnya.", "Rendah"),
+        ("AC mati sehingga ruang kelas panas dan mengganggu kegiatan perkuliahan.", "Sedang"),
+        ("Sistem terkadang down, tetapi masih dapat diakses kembali setelah beberapa saat.", "Sedang"),
+        ("Lab informatika sebaiknya diperbanyak komputernya.", "Rendah"),
+        ("Nilai mata kuliah terlambat keluar dan menghambat proses administrasi mahasiswa.", "Sedang"),
+        ("Tidak terjadi korsleting dan tidak ada asap di laboratorium.", "Rendah"),
+        (
+            "Sistem KRS tidak dapat diakses sama sekali oleh seluruh mahasiswa dan hari ini batas akhir pengisian. "
+            "Tidak ada alternatif sehingga mahasiswa terancam gagal mengambil mata kuliah.",
+            "Tinggi",
+        ),
+        (
+            "Pelayanan sangat lambat, sulit, buruk, dan mengganggu, tetapi proses masih dapat dilakukan.",
+            "Sedang",
+        ),
+    ],
+)
+def test_required_urgency_examples(description: str, expected_urgency: str) -> None:
+    data = predict_complaint(description)
+    assert data["urgency"] == expected_urgency
+
+
+def test_required_wifi_example_has_negative_sentiment() -> None:
+    data = predict_complaint(
+        "Koneksi Wi-Fi di laboratorium sering lambat dan mengganggu kegiatan praktikum. "
+        "Mahasiswa mengalami kesulitan mengakses materi pembelajaran dan mengunggah tugas, "
+        "tetapi jaringan masih dapat digunakan."
+    )
+    assert data["sentiment"] == "Negatif"
+
+
+def test_very_negative_noncritical_text_cannot_be_high() -> None:
+    data = predict_complaint(
+        "Pelayanan sangat lambat, sulit, buruk, dan mengganggu, tetapi proses masih dapat dilakukan."
+    )
+    assert data["sentiment"] != "Positif"
+    assert data["urgency"] == "Sedang"

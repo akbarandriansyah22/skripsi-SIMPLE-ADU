@@ -56,7 +56,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import MahasiswaLayout from '../../layouts/MahasiswaLayout.vue'
 import pengaduanService from '../../services/pengaduan.service'
@@ -70,12 +70,17 @@ const submitting = ref(false)
 const submitError = ref('')
 const previewUrl = ref('')
 const errors = ref({})
-const kategoriOptions = [
-  { id: 1, nama: 'Akademik' },
-  { id: 2, nama: 'Fasilitas' },
-  { id: 3, nama: 'Kemahasiswaan' },
-]
+const kategoriOptions = ref([])
 const form = ref({ judul: '', kategori_id: 0, deskripsi: '', lampiran: null })
+
+onMounted(async () => {
+  try {
+    const response = await pengaduanService.categories()
+    kategoriOptions.value = response.data?.data || response.data || []
+  } catch (error) {
+    toast.add({ type: 'danger', message: errorMessage(error, 'Kategori pengaduan tidak dapat dimuat.') })
+  }
+})
 
 function validate() {
   const next = {}
