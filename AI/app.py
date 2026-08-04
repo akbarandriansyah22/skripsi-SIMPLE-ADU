@@ -28,11 +28,7 @@ def health_check() -> dict[str, str]:
     """Readiness check verifies the model and both sentiment lexicons."""
     try:
         from services.sentiment import load_sentiment_lexicons
-        from services.urgency_model import load_urgency_model
-
         load_sentiment_lexicons()
-        if load_urgency_model() is None:
-            raise RuntimeError("model urgensi tidak tersedia atau rusak")
         return {"status": "ok"}
     except Exception:
         logging.getLogger(__name__).exception("AI belum siap")

@@ -72,7 +72,7 @@
 
 Tidak ada respons kuesioner yang memenuhi bukti Tinggi secara kuat. Karena itu tidak ada label Tinggi yang dipaksakan dan tidak ada data kuesioner yang diubah menjadi Tinggi untuk menyeimbangkan kelas. Deteksi Tinggi pada input baru tetap dijaga oleh guardrail keselamatan dan pola dampak akademik kritis.
 
-Model MNB dilatih dari `teks_pengaduan` dengan target `label_reviewed`; `kondisi_asli` hanya dicatat sebagai metadata pendukung dan bukan target final.
+Dataset lama tidak lagi digunakan dalam proses AI aktif. Urgensi final ditentukan dengan rule-based yang dapat dijelaskan.
 
 ## Evaluasi model
 

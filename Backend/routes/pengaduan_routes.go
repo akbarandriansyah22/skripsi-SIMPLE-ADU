@@ -21,7 +21,12 @@ func PengaduanRoutes(r *gin.Engine) {
 		api.GET("/:id/lampiran", pengaduan.Attachment)
 		api.GET("/:id/respon/:responId/lampiran", pengaduan.ResponseAttachment)
 		api.PUT("/:id", middleware.RoleMiddleware("mahasiswa"), pengaduan.Update)
-		api.POST("/:id/respon", middleware.RoleMiddleware("mahasiswa", "admin_sistem", "admin_fakultas", "pimpinan_fakultas"), pengaduan.AddRespon)
+		api.POST("/:id/respon", middleware.RoleMiddleware("mahasiswa", "admin_fakultas", "pimpinan_fakultas"), pengaduan.AddRespon)
 		api.PATCH("/:id/selesai", middleware.RoleMiddleware("mahasiswa"), pengaduan.Finish)
+		coordination := controller.NewKoordinasiController()
+		internal := api.Group("/:id/koordinasi", middleware.RoleMiddleware("pimpinan_fakultas", "admin_fakultas", "kasubag"))
+		internal.GET("", coordination.List)
+		internal.POST("", coordination.Create)
+		internal.GET("/:messageId/lampiran", coordination.Attachment)
 	}
 }

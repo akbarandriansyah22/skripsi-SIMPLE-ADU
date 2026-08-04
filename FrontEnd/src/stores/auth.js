@@ -55,6 +55,10 @@ export const useAuthStore = defineStore('auth', {
       sessionStorage.clear()
       this.status = 'idle'
     },
+    markPasswordChanged() {
+      if (this.user) this.user.password_must_change = false
+      localStorage.setItem('simpelUser', JSON.stringify(this.user))
+    },
     loadFromStorage() {
       const token = localStorage.getItem('simpelToken')
       const role = localStorage.getItem('simpelRole')

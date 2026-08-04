@@ -7,5 +7,7 @@ const startProcess = (id) => api.patch(`/api/kasubag/pengaduan/${id}/proses`)
 const addResponse = (id, payload) => api.post(`/api/kasubag/pengaduan/${id}/respon`, payload)
 const finish = (id) => api.patch(`/api/kasubag/pengaduan/${id}/selesai`)
 const getAttachment = async (url) => (await api.get(url, { responseType: 'blob' })).data
+const coordination = (id) => api.get(`/api/pengaduan/${id}/koordinasi`)
+const sendCoordination = (id, payload) => api.post(`/api/pengaduan/${id}/koordinasi`, payload)
 
-export default { dashboard, getAllPengaduan, getPengaduanById, startProcess, addResponse, finish, getAttachment }
+export default { dashboard, getAllPengaduan, getPengaduanById, startProcess, addResponse, finish, getAttachment, coordination, sendCoordination }

@@ -99,6 +99,7 @@
                 "Anonim (Mahasiswa FT)"
               }}
             </p>
+            <dl v-if="selected" class="mt-4 grid grid-cols-2 gap-3 text-xs text-slate-700"><div><dt class="font-semibold">NIM</dt><dd>{{ selected.user?.mahasiswa?.nim || '-' }}</dd></div><div><dt class="font-semibold">Program Studi</dt><dd>{{ selected.user?.mahasiswa?.program_studi || '-' }}</dd></div><div><dt class="font-semibold">Angkatan</dt><dd>{{ selected.user?.mahasiswa?.angkatan || '-' }}</dd></div></dl>
             <p class="mt-2 text-xs text-slate-500">
               {{
                 selected?.unit?.nama_unit || selected?.unit || selected?.kategori?.nama || selected?.kategori || "Terverifikasi Admin"

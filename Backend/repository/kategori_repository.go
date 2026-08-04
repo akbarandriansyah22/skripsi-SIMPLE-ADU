@@ -12,6 +12,7 @@ type KategoriRepository interface {
 	GetByID(id uint64) (*models.KategoriPengaduan, error)
 	GetByNama(nama string) (*models.KategoriPengaduan, error)
 	GetAll() ([]models.KategoriPengaduan, error)
+	GetActive() ([]models.KategoriPengaduan, error)
 	Update(kategori *models.KategoriPengaduan) error
 	Delete(id uint64) error
 }
@@ -76,6 +77,12 @@ func (r *kategoriRepository) GetAll() ([]models.KategoriPengaduan, error) {
 
 	err := r.db.Order("nama ASC").Find(&kategori).Error
 
+	return kategori, err
+}
+
+func (r *kategoriRepository) GetActive() ([]models.KategoriPengaduan, error) {
+	var kategori []models.KategoriPengaduan
+	err := r.db.Where("is_active = ?", true).Order("nama ASC").Find(&kategori).Error
 	return kategori, err
 }
 

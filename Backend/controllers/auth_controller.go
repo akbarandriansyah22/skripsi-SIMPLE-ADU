@@ -133,3 +133,26 @@ func (c *AuthController) Login(ctx *gin.Context) {
 	})
 
 }
+
+func (c *AuthController) ChangePassword(ctx *gin.Context) {
+	value, exists := ctx.Get("user_id")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "User tidak ditemukan"})
+		return
+	}
+	userID, ok := value.(uint)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "User tidak valid"})
+		return
+	}
+	var req dto.ChangePasswordRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	if err := c.service.ChangePassword(userID, req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"success": true, "message": "Password berhasil diubah"})
+}

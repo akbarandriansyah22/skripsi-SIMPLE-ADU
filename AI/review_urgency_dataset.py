@@ -189,7 +189,7 @@ def build_audit_report(source: pd.DataFrame, reviewed: pd.DataFrame) -> str:
             "",
             "Tidak ada respons kuesioner yang memenuhi bukti Tinggi secara kuat. Karena itu tidak ada label Tinggi yang dipaksakan dan tidak ada data kuesioner yang diubah menjadi Tinggi untuk menyeimbangkan kelas. Deteksi Tinggi pada input baru tetap dijaga oleh guardrail keselamatan dan pola dampak akademik kritis.",
             "",
-            "Model MNB dilatih dari `teks_pengaduan` dengan target `label_reviewed`; `kondisi_asli` hanya dicatat sebagai metadata pendukung dan bukan target final.",
+            "Dataset ini tidak digunakan dalam proses AI aktif; urgensi final ditentukan dengan rule-based.",
             "",
         ]
     )

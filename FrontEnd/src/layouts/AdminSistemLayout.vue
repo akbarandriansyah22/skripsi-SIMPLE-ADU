@@ -16,7 +16,9 @@ import DashboardLayout from '../components/DashboardLayout.vue'
 const links = [
   { to: '/admin-sistem/dashboard', label: 'Dashboard' },
   { to: '/admin-sistem/pengguna', label: 'Manajemen Pengguna' },
+  { to: '/admin-sistem/import-mahasiswa', label: 'Import Mahasiswa' },
   { to: '/admin-sistem/unit', label: 'Manajemen Unit' },
   { to: '/admin-sistem/kategori', label: 'Manajemen Kategori' },
+  { to: '/admin-sistem/status', label: 'Status Konfigurasi' },
 ]
 </script>

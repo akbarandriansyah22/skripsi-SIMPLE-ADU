@@ -1,11 +1,10 @@
-"""Penentuan urgensi berbasis konteks, guardrail, dan model MNB pendukung."""
+"""Penentuan urgensi berbasis konteks, guardrail, dan aturan yang dapat dijelaskan."""
 
 from __future__ import annotations
 
 import logging
 
 from services.negation import effective_tokens, is_negated
-from services.urgency_model import URGENCY_LEVELS, predict_urgency_from_model
 
 logger = logging.getLogger(__name__)
 
@@ -78,21 +77,30 @@ MITIGATING_PHRASES = (
     ("sekadar", "tanya"),
 )
 
-NEGATION_TERMS = frozenset({"tidak", "bukan", "tak", "belum", "jangan", "tanpa", "tiada", "kurang"})
+NEGATION_TERMS = frozenset(
+    {"tidak", "bukan", "tak", "belum", "jangan", "tanpa", "tiada", "kurang"}
+)
 
 # Kept for callers that used the previous helper.  The numeric value is only
 # an operational-signal summary; it is never used as a direct high-urgency
 # threshold and sentiment contributes at most one bounded point.
 NEGATIVE_SENTIMENT_SUPPORT = -1
+URGENCY_LEVELS = {"Rendah": 1, "Sedang": 2, "Tinggi": 3}
 
 
 def _contains_phrase(tokens: list[str], phrase: tuple[str, ...]) -> bool:
     width = len(phrase)
-    return any(tuple(tokens[index : index + width]) == phrase for index in range(len(tokens) - width + 1))
+    return any(
+        tuple(tokens[index : index + width]) == phrase
+        for index in range(len(tokens) - width + 1)
+    )
 
 
 def _negated_token_present(tokens: list[str], candidates: set[str] | frozenset[str]) -> bool:
-    return any(token in candidates and is_negated(tokens, index) for index, token in enumerate(tokens))
+    return any(
+        token in candidates and is_negated(tokens, index)
+        for index, token in enumerate(tokens)
+    )
 
 
 def analyze_urgency_features(tokens: list[str]) -> dict[str, object]:
@@ -104,7 +112,10 @@ def analyze_urgency_features(tokens: list[str]) -> dict[str, object]:
 
     broad_scope = bool(active_set.intersection(HIGH_ACADEMIC_IMPACT_PATTERNS["cakupan_luas"]))
     critical_deadline = HIGH_ACADEMIC_IMPACT_PATTERNS["batas_waktu_kritis"].issubset(active_set)
-    no_alternative = _negated_token_present(tokens, HIGH_ACADEMIC_IMPACT_PATTERNS["tidak_ada_alternatif"])
+    no_alternative = _negated_token_present(
+        tokens,
+        HIGH_ACADEMIC_IMPACT_PATTERNS["tidak_ada_alternatif"],
+    )
     total_outage = (
         ("akses" in tokens and {"sama", "sekali"}.issubset(set(tokens)))
         or {"berhenti", "total"}.issubset(set(tokens))
@@ -161,37 +172,55 @@ def calculate_urgency_score(tokens: list[str], sentiment_score: int = 0) -> int:
     return score
 
 
-def determine_urgency(tokens: list[str], sentiment_score: int = 0) -> str:
-    """Determine urgency independently from sentiment polarity."""
+def urgency_analysis(tokens: list[str], sentiment_score: int = 0) -> dict[str, object]:
+    """Return the final rule-based label, score, and human-readable reason."""
     features = analyze_urgency_features(tokens)
     active_tokens = features["active_tokens"]
     critical_keywords = features["critical_keywords"]
-    medium_keywords = features["medium_keywords"]
     high_academic_impact = bool(features["high_impact"])
+    medium_keywords = features["medium_keywords"]
+    mitigating = features["mitigating_phrases"]
     operational_block = bool(features["operational_block"])
 
-    # Safety evidence is authoritative and cannot be lowered by positive
-    # sentiment or by the MNB prediction.
     if critical_keywords:
-        logger.info("Urgensi tinggi karena indikator keselamatan: %s", critical_keywords)
-        return "Tinggi"
-    if high_academic_impact:
-        logger.info("Urgensi tinggi karena dampak akademik kritis")
-        return "Tinggi"
+        reason = "Terdapat indikator bahaya/keselamatan: " + ", ".join(critical_keywords)
+        label = "Tinggi"
+    elif high_academic_impact:
+        label = "Tinggi"
+        reason = (
+            "Terdapat dampak akademik kritis: cakupan luas, batas waktu, "
+            "dan tidak ada alternatif."
+        )
+    elif mitigating and not operational_block and len(medium_keywords) <= 1:
+        label = "Rendah"
+        reason = "Keluhan memiliki frasa mitigasi sehingga dampak masih terbatas."
+    elif medium_keywords or operational_block or sentiment_score < 0:
+        label = "Sedang"
+        reason = (
+            "Terdapat gangguan operasional atau keluhan negatif tanpa bukti "
+            "keadaan darurat."
+        )
+    else:
+        label = "Rendah"
+        reason = (
+            "Tidak ditemukan indikator bahaya, darurat, atau gangguan "
+            "operasional yang signifikan."
+        )
 
-    has_operational_issue = bool(medium_keywords) or operational_block
-    negative_support = sentiment_score < 0
-    rule_urgency = "Sedang" if has_operational_issue or negative_support else "Rendah"
+    return {
+        "score": URGENCY_LEVELS[label],
+        "label": label,
+        "reason": reason,
+        "signals": {
+            "critical_keywords": critical_keywords,
+            "medium_keywords": medium_keywords,
+            "mitigating_phrases": mitigating,
+            "negation_detected": features["negation_detected"],
+            "active_tokens": active_tokens,
+        },
+    }
 
-    model_urgency = predict_urgency_from_model(active_tokens)
-    if model_urgency == "Tinggi":
-        # MNB is not allowed to create a high class.  It can only support a
-        # medium result when the text itself shows a real issue.
-        return "Sedang" if has_operational_issue or negative_support else "Rendah"
-    if model_urgency == "Sedang" and has_operational_issue:
-        return "Sedang"
-    if model_urgency == "Rendah" and rule_urgency == "Sedang":
-        return "Sedang"
-    if model_urgency in URGENCY_LEVELS and rule_urgency == "Rendah":
-        return model_urgency if model_urgency == "Rendah" else "Rendah"
-    return rule_urgency
+
+def determine_urgency(tokens: list[str], sentiment_score: int = 0) -> str:
+    """Determine urgency only from explainable rules, not sentiment classes/models."""
+    return str(urgency_analysis(tokens, sentiment_score)["label"])

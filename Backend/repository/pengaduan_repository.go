@@ -49,7 +49,7 @@ func (r *pengaduanRepository) GetByID(id uint64) (*models.Pengaduan, error) {
 	var pengaduan models.Pengaduan
 
 	err := r.db.
-		Preload("User").
+		Preload("User").Preload("User.Mahasiswa").
 		Preload("Kategori").
 		Preload("Unit").
 		Preload("HasilAI").
@@ -77,7 +77,7 @@ func (r *pengaduanRepository) GetByKodeTiket(kode string) (*models.Pengaduan, er
 
 	err := r.db.
 		Where("kode_tiket = ?", kode).
-		Preload("User").
+		Preload("User").Preload("User.Mahasiswa").
 		Preload("Kategori").
 		Preload("Unit").
 		Preload("HasilAI").
@@ -128,7 +128,7 @@ func (r *pengaduanRepository) GetByStatus(status string) ([]models.Pengaduan, er
 
 	err := r.db.
 		Where("status = ?", status).
-		Preload("User").
+		Preload("User").Preload("User.Mahasiswa").
 		Preload("Kategori").
 		Preload("Unit").
 		Preload("HasilAI").
@@ -151,7 +151,7 @@ func (r *pengaduanRepository) GetAll() ([]models.Pengaduan, error) {
 	var pengaduan []models.Pengaduan
 
 	err := r.db.
-		Preload("User").
+		Preload("User").Preload("User.Mahasiswa").
 		Preload("Kategori").
 		Preload("Unit").
 		Preload("HasilAI").

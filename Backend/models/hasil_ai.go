@@ -16,6 +16,9 @@ type HasilAI struct {
 	Sentimen           string    `gorm:"column:sentimen;size:20;not null" json:"sentimen"`
 	PenjelasanSentimen string    `gorm:"column:penjelasan_sentimen;type:text" json:"penjelasan_sentimen"`
 	DetailSkor         JSONB     `gorm:"column:detail_skor;type:jsonb" json:"detail_skor"`
+	MatchedWords       JSONB     `gorm:"column:matched_words;type:jsonb" json:"matched_words"`
+	UrgencyScore       int       `gorm:"column:urgency_score;default:0" json:"urgency_score"`
+	UrgencyReason      string    `gorm:"column:urgency_reason;type:text" json:"urgency_reason"`
 	Urgensi            string    `gorm:"column:urgensi;size:20;not null" json:"urgensi"`
 	DasarUrgensi       string    `gorm:"column:dasar_urgensi;type:text" json:"dasar_urgensi"`
 	CreatedAt          time.Time `gorm:"column:created_at" json:"created_at"`

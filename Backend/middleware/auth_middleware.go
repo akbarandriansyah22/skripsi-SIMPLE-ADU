@@ -53,7 +53,7 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 		var user models.User
-		if err := config.DB.Select("id", "role", "unit_id", "is_active").First(&user, userID).Error; err != nil || !user.IsActive {
+		if err := config.DB.Select("id", "role", "unit_id", "is_active", "password_must_change").First(&user, userID).Error; err != nil || !user.IsActive {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"success": false, "message": "akun tidak aktif atau tidak ditemukan"})
 			return
 		}
@@ -61,6 +61,11 @@ func AuthMiddleware() gin.HandlerFunc {
 		c.Set("user_id", userID)
 		c.Set("role", canonicalRole)
 		c.Set("unit_id", user.UnitID)
+		c.Set("password_must_change", user.PasswordMustChange)
+		if user.PasswordMustChange && c.Request.URL.Path != "/api/auth/change-password" {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"success": false, "message": "Password sementara wajib diganti terlebih dahulu", "code": "PASSWORD_CHANGE_REQUIRED"})
+			return
+		}
 		c.Next()
 	}
 }

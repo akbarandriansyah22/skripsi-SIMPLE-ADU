@@ -20,11 +20,21 @@ type AIService struct {
 }
 
 type aiPredictResponse struct {
-	CleanedText string   `json:"cleaned_text"`
-	Tokens      []string `json:"tokens"`
-	Score       int      `json:"score"`
-	Sentiment   string   `json:"sentiment"`
-	Urgency     string   `json:"urgency"`
+	OriginalText         string           `json:"original_text"`
+	CleanedText          string           `json:"cleaned_text"`
+	Tokens               []string         `json:"tokens"`
+	Score                int              `json:"score"`
+	Sentiment            string           `json:"sentiment"`
+	Urgency              string           `json:"urgency"`
+	PositiveScore        int              `json:"positive_score"`
+	NegativeScore        int              `json:"negative_score"`
+	SentimentScore       int              `json:"sentiment_score"`
+	SentimentLabel       string           `json:"sentiment_label"`
+	MatchedWords         []map[string]any `json:"matched_words"`
+	SentimentExplanation string           `json:"sentiment_explanation"`
+	UrgencyScore         int              `json:"urgency_score"`
+	UrgencyLabel         string           `json:"urgency_label"`
+	UrgencyReason        string           `json:"urgency_reason"`
 }
 
 func NewAIService() *AIService {
@@ -78,11 +88,30 @@ func (s *AIService) Analyze(req dto.AIRequest) (*dto.AIResponse, error) {
 	}
 
 	result := dto.AIResponse{
-		CleanedText: prediction.CleanedText,
-		Tokens:      prediction.Tokens,
-		Score:       prediction.Score,
-		Sentimen:    prediction.Sentiment,
-		Urgensi:     prediction.Urgency,
+		OriginalText:         prediction.OriginalText,
+		CleanedText:          prediction.CleanedText,
+		Tokens:               prediction.Tokens,
+		Score:                prediction.Score,
+		Sentimen:             prediction.Sentiment,
+		Urgensi:              prediction.Urgency,
+		PositiveScore:        prediction.PositiveScore,
+		NegativeScore:        prediction.NegativeScore,
+		SentimentScore:       prediction.SentimentScore,
+		SentimentLabel:       prediction.SentimentLabel,
+		MatchedWords:         prediction.MatchedWords,
+		SentimentExplanation: prediction.SentimentExplanation,
+		UrgencyScore:         prediction.UrgencyScore,
+		UrgencyLabel:         prediction.UrgencyLabel,
+		UrgencyReason:        prediction.UrgencyReason,
+	}
+	if result.SentimentScore == 0 && result.Score != 0 {
+		result.SentimentScore = result.Score
+	}
+	if result.SentimentLabel == "" {
+		result.SentimentLabel = result.Sentimen
+	}
+	if result.UrgencyLabel == "" {
+		result.UrgencyLabel = result.Urgensi
 	}
 
 	return &result, nil

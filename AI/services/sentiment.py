@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import logging
 from functools import lru_cache
+from typing import Any
 from pathlib import Path
 
 from services.negation import is_negated
@@ -58,7 +59,7 @@ def load_sentiment_lexicons() -> tuple[dict[str, int], dict[str, int]]:
     return positive_words, negative_words
 
 
-def analyze_sentiment(tokens: list[str]) -> dict[str, int | str]:
+def analyze_sentiment(tokens: list[str]) -> dict[str, Any]:
     """Hitung skor sentimen dari daftar token."""
     try:
         positive_words, negative_words = load_sentiment_lexicons()
@@ -70,6 +71,7 @@ def analyze_sentiment(tokens: list[str]) -> dict[str, int | str]:
 
     positive_score = 0
     negative_score = 0
+    matched_words: list[dict[str, Any]] = []
     for index, token in enumerate(tokens):
         positive = positive_words.get(token, 0)
         negative = negative_words.get(token, 0)
@@ -77,6 +79,13 @@ def analyze_sentiment(tokens: list[str]) -> dict[str, int | str]:
             positive, negative = -negative, -positive
         positive_score += positive
         negative_score += negative
+        if positive or negative:
+            matched_words.append({
+                "word": token,
+                "positive_score": positive,
+                "negative_score": negative,
+                "negated": is_negated(tokens, index),
+            })
     total_score = positive_score + negative_score
 
     if total_score > 0:
@@ -91,4 +100,10 @@ def analyze_sentiment(tokens: list[str]) -> dict[str, int | str]:
         "negative_score": negative_score,
         "score": total_score,
         "sentiment": sentiment,
+        "matched_words": matched_words,
+        "explanation": (
+            f"Ditemukan {len(matched_words)} kata InSet yang memengaruhi skor; "
+            f"skor positif {positive_score}, skor negatif {negative_score}, "
+            f"skor akhir {total_score}."
+        ),
     }

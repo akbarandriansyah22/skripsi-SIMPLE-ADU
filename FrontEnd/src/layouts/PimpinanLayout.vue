@@ -17,6 +17,7 @@ import DashboardLayout from '../components/DashboardLayout.vue'
 const links = [
   { to: '/pimpinan/dashboard', label: 'Dashboard' },
   { to: '/pimpinan/validasi', label: 'Pengaduan Urgensi Tinggi' },
+  { to: '/pimpinan/riwayat-tinggi', label: 'Riwayat Pengaduan Tinggi' },
   { to: '/pimpinan/disposisi', label: 'Disposisi' },
 ]
 </script>

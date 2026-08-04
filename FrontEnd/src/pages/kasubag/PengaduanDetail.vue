@@ -12,6 +12,7 @@
 
     <section v-else-if="item" class="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.6fr)]">
       <div class="space-y-5">
+        <article v-if="item.urgensi === 'Tinggi'" class="rounded-xl border border-amber-200 bg-amber-50 p-5 shadow-sm sm:p-6"><div><h3 class="text-sm font-bold text-slate-950">Koordinasi Internal</h3><p class="mt-1 text-xs text-slate-600">Pesan ini hanya terlihat oleh Pimpinan dan unit yang ditugaskan.</p></div><div v-if="coordination.length" class="mt-4 space-y-3"><div v-for="message in coordination" :key="message.id" class="rounded-xl border border-amber-100 bg-white p-3"><div class="flex justify-between gap-3 text-[11px] text-slate-500"><span class="font-semibold text-slate-900">{{ message.sender_name }} · {{ message.sender_role }}</span><span>{{ dateLabel(message.created_at, true) }}</span></div><p class="mt-2 whitespace-pre-line text-xs text-slate-700">{{ message.pesan }}</p></div></div><p v-else class="mt-4 text-xs text-slate-500">Belum ada pesan koordinasi.</p><form class="mt-4 space-y-2" @submit.prevent="sendCoordination"><textarea v-model="coordinationText" rows="3" class="w-full rounded-xl border border-amber-200 px-3 py-2 text-xs" placeholder="Kirim arahan atau pembaruan internal..."></textarea><div class="flex flex-wrap items-center justify-between gap-2"><input ref="coordinationFileInput" type="file" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" class="max-w-full text-xs" @change="onCoordinationFile" /><button type="submit" :disabled="sendingCoordination || !coordinationText.trim()" class="rounded-full bg-amber-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{{ sendingCoordination ? 'Mengirim...' : 'Kirim Koordinasi' }}</button></div></form></article>
         <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <div class="flex flex-col gap-3 border-b border-slate-100 pb-5 sm:flex-row sm:items-start sm:justify-between">
             <div class="min-w-0">
@@ -24,7 +25,9 @@
 
           <dl class="mt-5 grid gap-4 text-xs sm:grid-cols-2">
             <div><dt class="text-slate-500">Nama mahasiswa</dt><dd class="mt-1 font-semibold text-slate-900">{{ item.user?.nama_lengkap || item.nama_mahasiswa || '-' }}</dd></div>
-            <div><dt class="text-slate-500">NIM</dt><dd class="mt-1 font-semibold text-slate-900">{{ item.user?.nim || item.nim || '-' }}</dd></div>
+            <div><dt class="text-slate-500">NIM</dt><dd class="mt-1 font-semibold text-slate-900">{{ item.user?.mahasiswa?.nim || item.nim || '-' }}</dd></div>
+            <div><dt class="text-slate-500">Program studi</dt><dd class="mt-1 font-semibold text-slate-900">{{ item.user?.mahasiswa?.program_studi || '-' }}</dd></div>
+            <div><dt class="text-slate-500">Angkatan</dt><dd class="mt-1 font-semibold text-slate-900">{{ item.user?.mahasiswa?.angkatan || '-' }}</dd></div>
             <div><dt class="text-slate-500">Email</dt><dd class="mt-1 break-all font-semibold text-slate-900">{{ item.user?.email || '-' }}</dd></div>
             <div><dt class="text-slate-500">Kategori</dt><dd class="mt-1 font-semibold text-slate-900">{{ item.kategori?.nama || item.kategori || '-' }}</dd></div>
             <div><dt class="text-slate-500">Unit penanganan</dt><dd class="mt-1 font-semibold text-slate-900">{{ item.unit?.nama_unit || '-' }}</dd></div>
@@ -121,6 +124,7 @@ const sending = ref(false)
 const savingStatus = ref(false)
 const nextStatus = ref('')
 const attachmentUrls = ref({ complaint: '', responses: {} })
+const coordination = ref([]); const coordinationText = ref(''); const coordinationFile = ref(null); const coordinationFileInput = ref(null); const sendingCoordination = ref(false)
 
 const canReply = computed(() => item.value?.status === 'Diproses' && replyText.value.trim().length > 0)
 const conversation = computed(() => [...(item.value?.respon_pengaduan || [])].sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()).map((message) => ({ ...message, isMine: Number(message.user_id) === Number(auth.user?.id) })))
@@ -146,10 +150,13 @@ function formatBytes(value) { if (!value) return ''; if (value < 1024) return `$
 
 async function load() {
   loading.value = true; error.value = ''
-  try { item.value = responseData(await service.getPengaduanById(route.params.id)); nextStatus.value = ''; await loadAttachments() }
+  try { item.value = responseData(await service.getPengaduanById(route.params.id)); nextStatus.value = ''; await loadAttachments(); await loadCoordination() }
   catch (err) { error.value = errorMessage(err, 'Detail pengaduan tidak dapat dimuat.') }
   finally { loading.value = false }
 }
+async function loadCoordination() { if (item.value?.urgensi !== 'Tinggi') { coordination.value = []; return } try { coordination.value = responseData(await service.coordination(route.params.id), []) || [] } catch { coordination.value = [] } }
+function onCoordinationFile(event) { const selected = event.target.files?.[0] || null; const validation = validateEvidence(selected); if (validation) { toast.add({ type: 'danger', message: validation }); coordinationFile.value = null; if (coordinationFileInput.value) coordinationFileInput.value.value = ''; return }; coordinationFile.value = selected }
+async function sendCoordination() { if (!coordinationText.value.trim() || sendingCoordination.value) return; sendingCoordination.value = true; const payload = new FormData(); payload.append('pesan', coordinationText.value.trim()); if (coordinationFile.value) payload.append('lampiran', coordinationFile.value); try { await service.sendCoordination(route.params.id, payload); coordinationText.value = ''; coordinationFile.value = null; if (coordinationFileInput.value) coordinationFileInput.value.value = ''; toast.add({ type: 'success', message: 'Koordinasi berhasil dikirim.' }); await loadCoordination() } catch (err) { toast.add({ type: 'danger', message: errorMessage(err, 'Koordinasi gagal dikirim.') }) } finally { sendingCoordination.value = false } }
 
 function onReplyFileChange(event) {
   const file = event.target.files?.[0] || null

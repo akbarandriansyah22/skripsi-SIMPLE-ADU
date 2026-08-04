@@ -13,6 +13,10 @@ const updateUnit = (id, payload) => api.patch(`/api/admin-sistem/units/${id}`, p
 const categories = () => api.get('/api/admin-sistem/categories')
 const createCategory = (payload) => api.post('/api/admin-sistem/categories', payload)
 const updateCategory = (id, payload) => api.patch(`/api/admin-sistem/categories/${id}`, payload)
+const setUnitStatus = (id, payload) => api.patch(`/api/admin-sistem/units/${id}/status`, payload)
+const setCategoryStatus = (id, payload) => api.patch(`/api/admin-sistem/categories/${id}/status`, payload)
+const downloadImportTemplate = () => api.get('/api/admin-sistem/mahasiswa/template', { responseType: 'blob' })
+const importMahasiswa = (payload) => api.post('/api/admin-sistem/mahasiswa/import', payload)
 
 export default {
   dashboard,
@@ -28,4 +32,8 @@ export default {
   categories,
   createCategory,
   updateCategory,
+  setUnitStatus,
+  setCategoryStatus,
+  downloadImportTemplate,
+  importMahasiswa,
 }

@@ -15,6 +15,8 @@ func PimpinanRoutes(r *gin.Engine) {
 	{
 		api.GET("/dashboard", pimpinan.Dashboard)
 		api.GET("/pengaduan/urgensi-tinggi", pimpinan.GetUrgensiTinggi)
+		api.GET("/pengaduan/riwayat", pimpinan.GetRiwayatUrgensiTinggi)
+		api.GET("/pengaduan/riwayat/:id", pimpinan.GetRiwayatUrgensiTinggiDetail)
 		api.GET("/pengaduan/:id", pimpinan.GetPengaduan)
 		api.POST("/pengaduan/:id/disposisi", pimpinan.CreateDisposisi)
 		api.GET("/disposisi", pimpinan.MyDisposisi)

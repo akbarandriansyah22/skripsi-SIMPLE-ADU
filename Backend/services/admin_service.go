@@ -147,7 +147,7 @@ func (s *AdminService) ForwardToPimpinan(adminID, id uint64) error {
 			return err
 		}
 		var pimpinan []models.User
-		if err := tx.Where("role = ?", utils.RolePimpinan).Find(&pimpinan).Error; err != nil {
+		if err := tx.Where("role = ? AND is_active = ?", utils.RolePimpinan, true).Find(&pimpinan).Error; err != nil {
 			return err
 		}
 		for _, user := range pimpinan {

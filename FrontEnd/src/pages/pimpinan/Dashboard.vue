@@ -41,6 +41,7 @@
         </p>
       </div>
     </section>
+    <section class="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4"><div v-for="item in [{ label: 'Total Pengaduan', value: stats?.total_pengaduan }, { label: 'Belum Dikerjakan', value: stats?.belum_dikerjakan }, { label: 'Sedang Diproses', value: stats?.sedang_diproses }, { label: 'Selesai', value: stats?.selesai }, { label: 'Ditolak', value: stats?.ditolak }, { label: 'Urgensi Rendah', value: stats?.urgensi_rendah }, { label: 'Urgensi Sedang', value: stats?.urgensi_sedang }, { label: 'Urgensi Tinggi', value: stats?.total_urgensi_tinggi }]" :key="item.label" class="rounded-xl bg-white p-4 shadow-card ring-1 ring-slate-200/50"><p class="text-[11px] text-slate-500">{{ item.label }}</p><p class="mt-2 text-2xl font-bold text-slate-950">{{ item.value ?? 0 }}</p></div></section>
     <section class="mt-6 grid gap-6 lg:grid-cols-2">
       <div class="rounded-xl bg-white p-6 shadow-card ring-1 ring-slate-200/50">
         <div class="flex items-center justify-between">

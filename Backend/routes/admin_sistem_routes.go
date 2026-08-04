@@ -21,9 +21,13 @@ func AdminSistemRoutes(r *gin.Engine) {
 		api.GET("/units", c.Units)
 		api.POST("/units", c.CreateUnit)
 		api.PATCH("/units/:id", c.UpdateUnit)
+		api.PATCH("/units/:id/status", c.SetUnitStatus)
 		api.GET("/categories", c.Categories)
 		api.POST("/categories", c.CreateCategory)
 		api.PATCH("/categories/:id", c.UpdateCategory)
+		api.PATCH("/categories/:id/status", c.SetCategoryStatus)
+		api.GET("/mahasiswa/template", c.ImportTemplate)
+		api.POST("/mahasiswa/import", c.ImportMahasiswa)
 	}
 	// Frontend compatibility: older Admin Sistem screens used /api/admin/users.
 	legacy := r.Group("/api/admin")

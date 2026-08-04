@@ -57,6 +57,7 @@
         </div>
       </div>
     </section>
+    <section class="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-6"><p class="text-sm font-bold text-slate-950">Koordinasi Internal Urgensi Tinggi</p><p class="mt-1 text-xs text-slate-600">Kirim arahan privat kepada unit tanpa mengubah status pengaduan.</p><div class="mt-4 grid gap-3 sm:grid-cols-[180px_1fr_auto]"><input v-model="coordinationId" type="number" min="1" placeholder="ID pengaduan" class="rounded-lg border border-amber-200 px-3 py-2 text-xs" /><input v-model="coordinationMessage" type="text" placeholder="Pesan koordinasi" class="rounded-lg border border-amber-200 px-3 py-2 text-xs" /><button type="button" :disabled="sendingCoordination || !coordinationId || !coordinationMessage.trim()" class="rounded-lg bg-amber-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50" @click="sendCoordination">{{ sendingCoordination ? 'Mengirim...' : 'Kirim' }}</button></div><div v-if="coordinationMessages.length" class="mt-4 space-y-2"><div v-for="message in coordinationMessages" :key="message.id" class="rounded-lg bg-white p-3 text-xs"><p class="font-semibold">{{ message.sender_name }} · {{ message.sender_role }}</p><p class="mt-1 text-slate-700">{{ message.pesan }}</p></div></div></section>
     <Modal
       v-if="showModal"
       :visible="showModal"
@@ -138,6 +139,7 @@ const showModal = ref(false);
 const modalError = ref("");
 const units = ref([]);
 const submitting = ref(false);
+const coordinationId = ref(''); const coordinationMessage = ref(''); const coordinationMessages = ref([]); const sendingCoordination = ref(false)
 
 const load = async () => {
   loading.value = true;
@@ -199,4 +201,6 @@ onMounted(async () => {
     units.value = response.data?.data || response.data || [];
   } catch {}
 });
+
+async function sendCoordination() { if (!coordinationId.value || !coordinationMessage.value.trim() || sendingCoordination.value) return; sendingCoordination.value = true; try { await pimpinanService.sendCoordination(coordinationId.value, { pesan: coordinationMessage.value.trim() }); const response = await pimpinanService.coordination(coordinationId.value); coordinationMessages.value = response.data?.data || response.data || []; coordinationMessage.value = ''; toast.add({ type: 'success', message: 'Koordinasi berhasil dikirim.' }) } catch (err) { toast.add({ type: 'danger', message: errorMessage(err, 'Koordinasi gagal dikirim.') }) } finally { sendingCoordination.value = false } }
 </script>

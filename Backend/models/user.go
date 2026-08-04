@@ -3,20 +3,23 @@ package models
 import "time"
 
 type User struct {
-	ID           uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	NamaLengkap  string    `gorm:"column:nama_lengkap;size:150;not null" json:"nama_lengkap"`
-	Email        string    `gorm:"column:email;size:150;unique;not null" json:"email"`
-	PasswordHash string    `gorm:"column:password_hash;type:text;not null" json:"-"`
-	Role         string    `gorm:"column:role;size:32;not null" json:"role"`
-	UnitID       *uint     `gorm:"column:unit_id;index" json:"unit_id,omitempty"`
-	IsActive     bool      `gorm:"column:is_active;default:true" json:"is_active"`
-	CreatedAt    time.Time `gorm:"column:created_at" json:"created_at"`
-	UpdatedAt    time.Time `gorm:"column:updated_at" json:"updated_at"`
+	ID                 uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	NamaLengkap        string    `gorm:"column:nama_lengkap;size:150;not null" json:"nama_lengkap"`
+	Email              string    `gorm:"column:email;size:150;unique;not null" json:"email"`
+	PasswordHash       string    `gorm:"column:password_hash;type:text;not null" json:"-"`
+	Role               string    `gorm:"column:role;size:32;not null" json:"role"`
+	UnitID             *uint     `gorm:"column:unit_id;index" json:"unit_id,omitempty"`
+	IsActive           bool      `gorm:"column:is_active;default:true" json:"is_active"`
+	PasswordMustChange bool      `gorm:"column:password_must_change;default:false" json:"password_must_change"`
+	CreatedAt          time.Time `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt          time.Time `gorm:"column:updated_at" json:"updated_at"`
 
 	// Relasi
-	Pengaduan  []Pengaduan  `gorm:"foreignKey:UserID" json:"-"`
-	Notifikasi []Notifikasi `gorm:"foreignKey:UserID" json:"-"`
-	Unit       *Unit        `gorm:"foreignKey:UnitID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"unit,omitempty"`
+	Pengaduan          []Pengaduan          `gorm:"foreignKey:UserID" json:"-"`
+	Notifikasi         []Notifikasi         `gorm:"foreignKey:UserID" json:"-"`
+	KoordinasiInternal []KoordinasiInternal `gorm:"foreignKey:SenderID" json:"-"`
+	Unit               *Unit                `gorm:"foreignKey:UnitID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"unit,omitempty"`
+	Mahasiswa          *Mahasiswa           `gorm:"foreignKey:UserID;references:ID" json:"mahasiswa,omitempty"`
 }
 
 func (User) TableName() string {

@@ -20,7 +20,8 @@ def _raise_request_validation_error(error: ValidationError) -> None:
 def test_predict_http_endpoint() -> None:
     """Route handler mempertahankan kontrak response endpoint /predict."""
     body = predict(PredictRequest(deskripsi="Ada kebakaran di laboratorium."))
-    assert set(body) == {"cleaned_text", "tokens", "score", "sentiment", "urgency"}
+    assert {"cleaned_text", "tokens", "score", "sentiment", "urgency"}.issubset(body)
+    assert {"original_text", "positive_score", "negative_score", "sentiment_score", "sentiment_label", "matched_words", "urgency_score", "urgency_label", "urgency_reason"}.issubset(body)
     assert body["urgency"] == "Tinggi"
 
 
@@ -33,7 +34,7 @@ def test_predict_endpoint_success() -> None:
     payload = PredictRequest(deskripsi="Fasilitas kampus rusak dan harus segera diperbaiki.")
     data = predict(payload)
 
-    assert set(data.keys()) == {"cleaned_text", "tokens", "score", "sentiment", "urgency"}
+    assert {"cleaned_text", "tokens", "score", "sentiment", "urgency"}.issubset(data)
     assert isinstance(data["cleaned_text"], str)
     assert isinstance(data["tokens"], list)
     assert isinstance(data["score"], int)

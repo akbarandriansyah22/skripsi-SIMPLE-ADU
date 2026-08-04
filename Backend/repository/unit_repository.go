@@ -89,7 +89,7 @@ func (r *unitRepository) GetWithActiveKasubag() ([]models.Unit, error) {
 	var units []models.Unit
 	err := r.db.Model(&models.Unit{}).
 		Joins("JOIN users ON users.unit_id = unit.id").
-		Where("LOWER(TRIM(users.role)) = ? AND users.is_active = ?", utils.RoleKasubag, true).
+		Where("unit.is_active = ? AND LOWER(TRIM(users.role)) = ? AND users.is_active = ?", true, utils.RoleKasubag, true).
 		Distinct("unit.id, unit.nama_unit, unit.email").
 		Order("unit.nama_unit ASC").
 		Find(&units).Error
@@ -100,7 +100,7 @@ func (r *unitRepository) GetWithActiveKasubagByID(id uint64) (*models.Unit, erro
 	var unit models.Unit
 	err := r.db.Model(&models.Unit{}).
 		Joins("JOIN users ON users.unit_id = unit.id").
-		Where("unit.id = ? AND LOWER(TRIM(users.role)) = ? AND users.is_active = ?", id, utils.RoleKasubag, true).
+		Where("unit.id = ? AND unit.is_active = ? AND LOWER(TRIM(users.role)) = ? AND users.is_active = ?", id, true, utils.RoleKasubag, true).
 		Distinct("unit.id, unit.nama_unit, unit.email").
 		First(&unit).Error
 	if err != nil {

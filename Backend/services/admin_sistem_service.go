@@ -80,7 +80,7 @@ func (s *AdminSistemService) CreateUser(req dto.CreateUserRequest) (*models.User
 		if err != nil {
 			return err
 		}
-		returnUser = &models.User{NamaLengkap: strings.TrimSpace(req.NamaLengkap), Email: strings.ToLower(strings.TrimSpace(req.Email)), PasswordHash: hash, Role: role, UnitID: unitID, IsActive: true}
+		returnUser = &models.User{NamaLengkap: strings.TrimSpace(req.NamaLengkap), Email: strings.ToLower(strings.TrimSpace(req.Email)), PasswordHash: hash, Role: role, UnitID: unitID, IsActive: true, PasswordMustChange: false}
 		return tx.Create(returnUser).Error
 	})
 	return returnUser, err
@@ -120,7 +120,7 @@ func (s *AdminSistemService) ResetPassword(id uint64, password string) error {
 	if err != nil {
 		return err
 	}
-	return config.DB.Model(&models.User{}).Where("id = ?", id).Update("password_hash", hash).Error
+	return config.DB.Model(&models.User{}).Where("id = ?", id).Updates(map[string]any{"password_hash": hash, "password_must_change": false}).Error
 }
 
 func (s *AdminSistemService) Units() ([]models.Unit, error) {
@@ -129,7 +129,7 @@ func (s *AdminSistemService) Units() ([]models.Unit, error) {
 	return rows, err
 }
 func (s *AdminSistemService) CreateUnit(req dto.UnitRequest) (*models.Unit, error) {
-	row := &models.Unit{NamaUnit: strings.TrimSpace(req.NamaUnit), Email: strings.TrimSpace(req.Email)}
+	row := &models.Unit{NamaUnit: strings.TrimSpace(req.NamaUnit), Email: strings.TrimSpace(req.Email), IsActive: true}
 	return row, config.DB.Create(row).Error
 }
 func (s *AdminSistemService) UpdateUnit(id uint64, req dto.UnitRequest) (*models.Unit, error) {
@@ -140,13 +140,17 @@ func (s *AdminSistemService) UpdateUnit(id uint64, req dto.UnitRequest) (*models
 	err := config.DB.Model(&row).Updates(map[string]interface{}{"nama_unit": strings.TrimSpace(req.NamaUnit), "email": strings.TrimSpace(req.Email)}).Error
 	return &row, err
 }
+func (s *AdminSistemService) SetUnitStatus(id uint64, active bool) error {
+	result := config.DB.Model(&models.Unit{}).Where("id = ?", id).Update("is_active", active)
+	return result.Error
+}
 func (s *AdminSistemService) Categories() ([]models.KategoriPengaduan, error) {
 	var rows []models.KategoriPengaduan
 	err := config.DB.Order("nama ASC").Find(&rows).Error
 	return rows, err
 }
 func (s *AdminSistemService) CreateCategory(req dto.CategoryRequest) (*models.KategoriPengaduan, error) {
-	row := &models.KategoriPengaduan{Nama: strings.TrimSpace(req.Nama), Deskripsi: strings.TrimSpace(req.Deskripsi)}
+	row := &models.KategoriPengaduan{Nama: strings.TrimSpace(req.Nama), Deskripsi: strings.TrimSpace(req.Deskripsi), IsActive: true}
 	return row, config.DB.Create(row).Error
 }
 func (s *AdminSistemService) UpdateCategory(id uint64, req dto.CategoryRequest) (*models.KategoriPengaduan, error) {
@@ -156,4 +160,8 @@ func (s *AdminSistemService) UpdateCategory(id uint64, req dto.CategoryRequest) 
 	}
 	err := config.DB.Model(&row).Updates(map[string]interface{}{"nama": strings.TrimSpace(req.Nama), "deskripsi": strings.TrimSpace(req.Deskripsi)}).Error
 	return &row, err
+}
+func (s *AdminSistemService) SetCategoryStatus(id uint64, active bool) error {
+	result := config.DB.Model(&models.KategoriPengaduan{}).Where("id = ?", id).Update("is_active", active)
+	return result.Error
 }

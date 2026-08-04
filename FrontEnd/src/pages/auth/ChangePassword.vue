@@ -1,0 +1,13 @@
+<template>
+  <AuthLayout><div class="space-y-6"><div><p class="text-xs font-semibold uppercase tracking-widest text-blue-600">Keamanan Akun</p><h1 class="mt-3 text-3xl font-bold text-slate-950">Ganti Password Sementara</h1><p class="mt-3 text-sm leading-relaxed text-slate-600">Password dari proses import harus diganti sebelum Anda menggunakan SIMPEL-ADU.</p></div><form class="space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-6 shadow-card" @submit.prevent="submit"><label class="block"><span class="text-sm font-semibold text-slate-900">Password saat ini</span><input v-model="form.current_password" type="password" autocomplete="current-password" class="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm" /></label><label class="block"><span class="text-sm font-semibold text-slate-900">Password baru</span><input v-model="form.new_password" type="password" autocomplete="new-password" class="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm" /></label><label class="block"><span class="text-sm font-semibold text-slate-900">Konfirmasi password baru</span><input v-model="confirmation" type="password" autocomplete="new-password" class="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm" /></label><p v-if="error" class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{{ error }}</p><button type="submit" :disabled="saving" class="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">{{ saving ? 'Menyimpan...' : 'Simpan Password Baru' }}</button></form></div></AuthLayout>
+</template>
+<script setup>
+import { reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import AuthLayout from '../../layouts/AuthLayout.vue'
+import authService from '../../services/auth.service'
+import { useAuthStore } from '../../stores/auth'
+import { errorMessage } from '../../utils/api'
+const router = useRouter(); const auth = useAuthStore(); const form = reactive({ current_password: '', new_password: '' }); const confirmation = ref(''); const error = ref(''); const saving = ref(false)
+async function submit() { error.value = ''; if (!form.new_password || form.new_password.length < 6) { error.value = 'Password baru minimal 6 karakter.'; return }; if (form.new_password !== confirmation.value) { error.value = 'Konfirmasi password tidak sama.'; return }; saving.value = true; try { await authService.changePassword(form); auth.markPasswordChanged(); router.replace('/mahasiswa/dashboard') } catch (err) { error.value = errorMessage(err, 'Password gagal diubah.') } finally { saving.value = false } }
+</script>

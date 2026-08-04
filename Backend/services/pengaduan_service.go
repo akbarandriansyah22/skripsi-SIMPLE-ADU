@@ -41,12 +41,16 @@ func NewPengaduanService() *PengaduanService {
 }
 
 func (s *PengaduanService) GetCategories() ([]models.KategoriPengaduan, error) {
-	return s.kategoriRepo.GetAll()
+	return s.kategoriRepo.GetActive()
 }
 
 func (s *PengaduanService) Create(userID uint, req dto.CreatePengaduanRequest) (*dto.PengaduanResponse, error) {
-	if _, err := s.kategoriRepo.GetByID(uint64(req.KategoriID)); err != nil {
+	kategori, err := s.kategoriRepo.GetByID(uint64(req.KategoriID))
+	if err != nil {
 		return nil, errors.New("kategori pengaduan tidak ditemukan")
+	}
+	if !kategori.IsActive {
+		return nil, errors.New("kategori pengaduan sedang nonaktif")
 	}
 
 	analysis, analysisErr := s.aiService.Analyze(dto.AIRequest{Deskripsi: strings.TrimSpace(req.Deskripsi)})
@@ -101,7 +105,18 @@ func hasilAIFromResponse(pengaduanID uint, analysis *dto.AIResponse) *models.Has
 	if err != nil || len(tokens) == 0 {
 		tokens = []byte("[]")
 	}
-	positive, negative := scoreComponents(analysis.Score)
+	positive, negative := analysis.PositiveScore, analysis.NegativeScore
+	if positive == 0 && negative == 0 {
+		positive, negative = scoreComponents(analysis.Score)
+	}
+	matchedWords, _ := json.Marshal(analysis.MatchedWords)
+	if len(matchedWords) == 0 || string(matchedWords) == "null" {
+		matchedWords = []byte("[]")
+	}
+	explanation := analysis.SentimentExplanation
+	if explanation == "" {
+		explanation = fmt.Sprintf("Skor sentimen sebesar %d berada %s 0 sehingga dikategorikan sebagai %s.", analysis.Score, scoreRelation(analysis.Score), analysis.Sentimen)
+	}
 	return &models.HasilAI{
 		PengaduanID:        pengaduanID,
 		CleanedText:        analysis.CleanedText,
@@ -110,10 +125,13 @@ func hasilAIFromResponse(pengaduanID uint, analysis *dto.AIResponse) *models.Has
 		SkorNegatif:        &negative,
 		SkorSentimen:       analysis.Score,
 		Sentimen:           analysis.Sentimen,
-		PenjelasanSentimen: fmt.Sprintf("Skor sentimen sebesar %d berada %s 0 sehingga dikategorikan sebagai %s.", analysis.Score, scoreRelation(analysis.Score), analysis.Sentimen),
-		DetailSkor:         models.JSONB([]byte("[]")),
+		PenjelasanSentimen: explanation,
+		DetailSkor:         models.JSONB(matchedWords),
+		MatchedWords:       models.JSONB(matchedWords),
 		Urgensi:            analysis.Urgensi,
-		DasarUrgensi:       "",
+		DasarUrgensi:       analysis.UrgencyReason,
+		UrgencyScore:       analysis.UrgencyScore,
+		UrgencyReason:      analysis.UrgencyReason,
 	}
 }
 
@@ -165,10 +183,14 @@ func (s *PengaduanService) GetByIDForRole(id uint64, userID uint64, role string)
 		return nil, err
 	}
 
+	canonicalRole := utils.CanonicalRole(role)
+	if canonicalRole == utils.RoleAdminSistem {
+		return nil, ErrForbidden
+	}
 	if isMahasiswaRole(role) && uint64(pengaduan.UserID) != userID {
 		return nil, ErrForbidden
 	}
-	if strings.EqualFold(role, utils.RoleKasubag) {
+	if canonicalRole == utils.RoleKasubag {
 		if !userBelongsToComplaintUnit(userID, pengaduan.UnitID) {
 			return nil, ErrForbidden
 		}
@@ -192,10 +214,14 @@ func (s *PengaduanService) GetByKodeTiketForRole(kode string, userID uint64, rol
 		return nil, err
 	}
 
+	canonicalRole := utils.CanonicalRole(role)
+	if canonicalRole == utils.RoleAdminSistem {
+		return nil, ErrForbidden
+	}
 	if isMahasiswaRole(role) && uint64(pengaduan.UserID) != userID {
 		return nil, ErrForbidden
 	}
-	if strings.EqualFold(role, utils.RoleKasubag) {
+	if canonicalRole == utils.RoleKasubag {
 		if !userBelongsToComplaintUnit(userID, pengaduan.UnitID) {
 			return nil, ErrForbidden
 		}
@@ -239,8 +265,12 @@ func (s *PengaduanService) Update(userID uint64, id uint64, req dto.UpdatePengad
 
 	newDescription := pengaduan.Deskripsi
 	if req.KategoriID != 0 {
-		if _, err := s.kategoriRepo.GetByID(uint64(req.KategoriID)); err != nil {
+		kategori, err := s.kategoriRepo.GetByID(uint64(req.KategoriID))
+		if err != nil {
 			return nil, errors.New("kategori pengaduan tidak ditemukan")
+		}
+		if !kategori.IsActive {
+			return nil, errors.New("kategori pengaduan sedang nonaktif")
 		}
 		pengaduan.KategoriID = req.KategoriID
 	}
@@ -381,6 +411,7 @@ func mapPengaduanResponse(pengaduan *models.Pengaduan) *dto.PengaduanResponse {
 		Status:           pengaduan.Status,
 		AIStatus:         "pending",
 		CreatedAt:        pengaduan.CreatedAt,
+		UpdatedAt:        pengaduan.UpdatedAt,
 	}
 	if pengaduan.Lampiran != "" {
 		response.LampiranURL = fmt.Sprintf("/api/pengaduan/%d/lampiran", pengaduan.ID)
@@ -397,6 +428,15 @@ func mapPengaduanResponse(pengaduan *models.Pengaduan) *dto.PengaduanResponse {
 		response.SkorSentimen = &skor
 		response.Sentimen = pengaduan.HasilAI.Sentimen
 		response.Urgensi = pengaduan.HasilAI.Urgensi
+		response.SkorPositif = pengaduan.HasilAI.SkorPositif
+		response.SkorNegatif = pengaduan.HasilAI.SkorNegatif
+		sentimentScore := pengaduan.HasilAI.SkorSentimen
+		response.SentimentScore = &sentimentScore
+		response.CleanedText = pengaduan.HasilAI.CleanedText
+		response.MatchedWords = append(response.MatchedWords[:0], pengaduan.HasilAI.MatchedWords...)
+		response.SentimentExplanation = pengaduan.HasilAI.PenjelasanSentimen
+		response.UrgencyScore = pengaduan.HasilAI.UrgencyScore
+		response.UrgencyReason = pengaduan.HasilAI.UrgencyReason
 		response.AIStatus = "success"
 	}
 	if pengaduan.Validasi != nil {
@@ -404,6 +444,9 @@ func mapPengaduanResponse(pengaduan *models.Pengaduan) *dto.PengaduanResponse {
 	}
 	if pengaduan.Disposisi != nil {
 		response.Disposisi = &dto.DisposisiResponse{ID: pengaduan.Disposisi.ID, PimpinanID: pengaduan.Disposisi.PimpinanID, UnitID: pengaduan.Disposisi.UnitID, Catatan: pengaduan.Disposisi.Catatan}
+		if pengaduan.Disposisi.Unit.ID != 0 {
+			response.Disposisi.Unit = &dto.UnitResponse{ID: pengaduan.Disposisi.Unit.ID, NamaUnit: pengaduan.Disposisi.Unit.NamaUnit}
+		}
 	}
 	if len(pengaduan.RiwayatStatus) > 0 {
 		response.RiwayatStatus = make([]dto.RiwayatStatusResponse, 0, len(pengaduan.RiwayatStatus))
@@ -419,6 +462,14 @@ func mapPengaduanResponse(pengaduan *models.Pengaduan) *dto.PengaduanResponse {
 			Email:       pengaduan.User.Email,
 			Role:        pengaduan.User.Role,
 			IsActive:    pengaduan.User.IsActive,
+		}
+		if pengaduan.User.Mahasiswa != nil {
+			response.User.Mahasiswa = &dto.MahasiswaIdentityResponse{
+				NamaLengkap:  pengaduan.User.NamaLengkap,
+				NIM:          pengaduan.User.Mahasiswa.NIM,
+				ProgramStudi: pengaduan.User.Mahasiswa.ProgramStudi,
+				Angkatan:     pengaduan.User.Mahasiswa.Angkatan,
+			}
 		}
 	}
 

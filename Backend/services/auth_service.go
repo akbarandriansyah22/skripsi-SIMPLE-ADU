@@ -141,15 +141,31 @@ func (s *AuthService) Login(req dto.LoginRequest) (*dto.LoginResponse, error) {
 	return &dto.LoginResponse{
 		Token: token,
 		User: dto.UserResponse{
-			ID:          user.ID,
-			NamaLengkap: user.NamaLengkap,
-			Email:       user.Email,
-			Role:        role,
-			IsActive:    user.IsActive,
-			UnitID:      user.UnitID,
-			UnitName:    userUnitName(*user),
+			ID:                 user.ID,
+			NamaLengkap:        user.NamaLengkap,
+			Email:              user.Email,
+			Role:               role,
+			IsActive:           user.IsActive,
+			PasswordMustChange: user.PasswordMustChange,
+			UnitID:             user.UnitID,
+			UnitName:           userUnitName(*user),
 		},
 	}, nil
+}
+
+func (s *AuthService) ChangePassword(userID uint, req dto.ChangePasswordRequest) error {
+	var user models.User
+	if err := s.repo.DB.First(&user, userID).Error; err != nil {
+		return err
+	}
+	if req.CurrentPassword != "" && !utils.CheckPassword(req.CurrentPassword, user.PasswordHash) {
+		return errors.New("password saat ini salah")
+	}
+	hash, err := utils.HashPassword(req.NewPassword)
+	if err != nil {
+		return err
+	}
+	return s.repo.DB.Model(&models.User{}).Where("id = ?", userID).Updates(map[string]any{"password_hash": hash, "password_must_change": false}).Error
 }
 
 // =======================================
@@ -165,13 +181,14 @@ func (s *AuthService) Profile(userID uint) (*dto.UserResponse, error) {
 	}
 
 	return &dto.UserResponse{
-		ID:          user.ID,
-		NamaLengkap: user.NamaLengkap,
-		Email:       user.Email,
-		Role:        utils.CanonicalRole(user.Role),
-		IsActive:    user.IsActive,
-		UnitID:      user.UnitID,
-		UnitName:    userUnitName(*user),
+		ID:                 user.ID,
+		NamaLengkap:        user.NamaLengkap,
+		Email:              user.Email,
+		Role:               utils.CanonicalRole(user.Role),
+		IsActive:           user.IsActive,
+		PasswordMustChange: user.PasswordMustChange,
+		UnitID:             user.UnitID,
+		UnitName:           userUnitName(*user),
 	}, nil
 }
 

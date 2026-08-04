@@ -100,6 +100,7 @@ const handleSubmit = async () => {
   error.value = "";
   try {
     await auth.login(form.value);
+    if (auth.user?.password_must_change) { router.replace('/auth/change-password'); return; }
     if (auth.isAdminSistem) {
       router.replace("/admin-sistem/dashboard");
     } else if (auth.isAdminFakultas) {

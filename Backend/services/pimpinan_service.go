@@ -2,7 +2,9 @@ package services
 
 import (
 	"errors"
+	"strconv"
 	"strings"
+	"time"
 
 	dto "backend/DTO"
 	"backend/config"
@@ -27,15 +29,47 @@ func NewPimpinanService() *PimpinanService {
 }
 
 func (s *PimpinanService) Dashboard() (*dto.DashboardPimpinanResponse, error) {
-	items, err := s.urgensiTinggi()
+	all, err := s.pengaduanRepo.GetAll()
 	if err != nil {
 		return nil, err
 	}
-
-	resp := &dto.DashboardPimpinanResponse{
-		TotalUrgensiTinggi: int64(len(items)),
+	resp := &dto.DashboardPimpinanResponse{TotalPengaduan: int64(len(all))}
+	for _, item := range all {
+		switch strings.ToLower(item.Status) {
+		case strings.ToLower(StatusMenunggu), strings.ToLower(StatusMenungguDisposisi), strings.ToLower(StatusDiteruskanUnit):
+			resp.BelumDikerjakan++
+		case strings.ToLower(StatusDiproses):
+			resp.SedangDiproses++
+		case strings.ToLower(StatusSelesai):
+			resp.Selesai++
+		case strings.ToLower(StatusDitolak):
+			resp.Ditolak++
+		}
+		if item.HasilAI != nil {
+			switch strings.ToLower(item.HasilAI.Urgensi) {
+			case "rendah":
+				resp.UrgensiRendah++
+			case "sedang":
+				resp.UrgensiSedang++
+			case "tinggi":
+				resp.TotalUrgensiTinggi++
+			}
+		}
+		if item.Disposisi == nil && item.HasilAI != nil && strings.EqualFold(item.HasilAI.Urgensi, "Tinggi") && strings.EqualFold(item.Status, StatusMenungguDisposisi) {
+			resp.BelumDisposisi++
+		} else if item.Disposisi != nil && item.HasilAI != nil && strings.EqualFold(item.HasilAI.Urgensi, "Tinggi") {
+			resp.SudahDisposisi++
+		}
 	}
+	return resp, nil
+}
 
+/*
+The dashboard deliberately counts from the repository result instead of
+frontend constants.  Keep the old urgent-disposition counters for existing
+clients while exposing the complete monitoring summary above.
+*/
+func (s *PimpinanService) legacyDashboardCounters(items []models.Pengaduan, resp *dto.DashboardPimpinanResponse) {
 	for _, item := range items {
 		if item.Disposisi == nil {
 			resp.BelumDisposisi++
@@ -43,8 +77,6 @@ func (s *PimpinanService) Dashboard() (*dto.DashboardPimpinanResponse, error) {
 			resp.SudahDisposisi++
 		}
 	}
-
-	return resp, nil
 }
 
 func (s *PimpinanService) GetUrgensiTinggi() ([]dto.PengaduanResponse, error) {
@@ -54,6 +86,133 @@ func (s *PimpinanService) GetUrgensiTinggi() ([]dto.PengaduanResponse, error) {
 	}
 
 	return mapPengaduanResponses(items), nil
+}
+
+type PimpinanHistoryFilter struct {
+	Search     string
+	Status     string
+	KategoriID uint64
+	UnitID     uint64
+	From       *time.Time
+	To         *time.Time
+}
+
+// GetRiwayatUrgensiTinggi returns every high-urgency complaint that actually
+// reached the leadership queue, including records already disposed or closed.
+func (s *PimpinanService) GetRiwayatUrgensiTinggi(filter PimpinanHistoryFilter) ([]dto.PengaduanResponse, error) {
+	items, err := s.pengaduanRepo.GetAll()
+	if err != nil {
+		return nil, err
+	}
+	search := strings.ToLower(strings.TrimSpace(filter.Search))
+	result := make([]dto.PengaduanResponse, 0)
+	for index := range items {
+		item := &items[index]
+		if !s.isPimpinanHistoryItem(item) {
+			continue
+		}
+		entryAt, _ := pimpinanEntryTime(item)
+		if filter.From != nil && entryAt.Before(*filter.From) {
+			continue
+		}
+		if filter.To != nil && !entryAt.Before(*filter.To) {
+			continue
+		}
+		if filter.Status != "" && !strings.EqualFold(item.Status, filter.Status) {
+			continue
+		}
+		if filter.KategoriID != 0 && uint64(item.KategoriID) != filter.KategoriID {
+			continue
+		}
+		if filter.UnitID != 0 && complaintUnitID(item) != filter.UnitID {
+			continue
+		}
+		if search != "" && !complaintMatchesSearch(item, search) {
+			continue
+		}
+		mapped := mapPengaduanResponse(item)
+		mapped.TanggalMasukPimpinan = timePointer(entryAt)
+		result = append(result, *mapped)
+	}
+	return result, nil
+}
+
+func (s *PimpinanService) GetRiwayatUrgensiTinggiDetail(id uint64) (*dto.PengaduanResponse, error) {
+	item, err := s.pengaduanRepo.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if !s.isPimpinanHistoryItem(item) {
+		return nil, errors.New("pengaduan tidak pernah masuk ke Pimpinan")
+	}
+	result := mapPengaduanResponse(item)
+	if entryAt, ok := pimpinanEntryTime(item); ok {
+		result.TanggalMasukPimpinan = timePointer(entryAt)
+	}
+	var coordination []models.KoordinasiInternal
+	if err := config.DB.Preload("Sender").Where("pengaduan_id = ?", item.ID).Order("created_at ASC").Find(&coordination).Error; err != nil {
+		return nil, err
+	}
+	for _, message := range coordination {
+		mapped := mapCoordination(message)
+		if message.Lampiran != "" {
+			mapped.LampiranURL = "/api/pengaduan/" + formatUint(item.ID) + "/koordinasi/" + formatUint(uint(message.ID)) + "/lampiran"
+		}
+		result.KoordinasiInternal = append(result.KoordinasiInternal, mapped)
+	}
+	return result, nil
+}
+
+func (s *PimpinanService) isPimpinanHistoryItem(item *models.Pengaduan) bool {
+	return item.HasilAI != nil &&
+		strings.EqualFold(item.HasilAI.Urgensi, "Tinggi") &&
+		item.Validasi != nil &&
+		strings.EqualFold(item.Validasi.StatusValidasi, "Diterima") &&
+		hasPimpinanEntry(item)
+}
+
+func hasPimpinanEntry(item *models.Pengaduan) bool {
+	for _, history := range item.RiwayatStatus {
+		if strings.EqualFold(history.StatusBaru, StatusMenungguDisposisi) {
+			return true
+		}
+	}
+	return false
+}
+
+func pimpinanEntryTime(item *models.Pengaduan) (time.Time, bool) {
+	var result time.Time
+	for _, history := range item.RiwayatStatus {
+		if strings.EqualFold(history.StatusBaru, StatusMenungguDisposisi) && (result.IsZero() || history.CreatedAt.Before(result)) {
+			result = history.CreatedAt
+		}
+	}
+	return result, !result.IsZero()
+}
+
+func complaintUnitID(item *models.Pengaduan) uint64 {
+	if item.UnitID != nil {
+		return uint64(*item.UnitID)
+	}
+	if item.Disposisi != nil {
+		return uint64(item.Disposisi.UnitID)
+	}
+	return 0
+}
+
+func complaintMatchesSearch(item *models.Pengaduan, search string) bool {
+	student := ""
+	if item.User.Mahasiswa != nil {
+		student = item.User.Mahasiswa.NIM
+	}
+	value := strings.ToLower(strings.Join([]string{item.KodeTiket, item.Judul, item.User.NamaLengkap, student}, " "))
+	return strings.Contains(value, search)
+}
+
+func timePointer(value time.Time) *time.Time { return &value }
+
+func formatUint(value uint) string {
+	return strconv.FormatUint(uint64(value), 10)
 }
 
 func (s *PimpinanService) GetPengaduan(id uint64) (*dto.PengaduanResponse, error) {

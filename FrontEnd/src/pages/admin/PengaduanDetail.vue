@@ -68,6 +68,7 @@
               Analisis AI sedang menunggu pemrosesan.
             </p>
           </div>
+          <div v-if="detail?.ai_status === 'success'" class="rounded-lg border border-violet-200 bg-violet-50 p-5"><p class="text-sm font-bold text-slate-950">Rincian Analisis AI</p><p class="mt-2 text-xs text-slate-700">Preprocessing: {{ detail.cleaned_text || '-' }}</p><p class="mt-2 text-xs text-slate-700">Skor positif {{ detail.skor_positif ?? 0 }}, skor negatif {{ detail.skor_negatif ?? 0 }}, skor akhir {{ detail.sentiment_score ?? detail.skor_sentimen ?? 0 }}</p><p class="mt-2 text-xs leading-relaxed text-slate-700">{{ detail.sentiment_explanation || '-' }}</p><p class="mt-2 text-xs leading-relaxed text-slate-700">Alasan urgensi: {{ detail.urgency_reason || '-' }}</p><p class="mt-2 text-xs text-slate-700">Kata yang memengaruhi: {{ (detail.matched_words || []).map((word) => word.word).join(', ') || '-' }}</p></div>
           <div v-if="detail?.validasi" class="rounded-lg border border-blue-200 bg-blue-50 p-5">
             <p class="text-sm font-bold text-slate-950">Validasi Admin</p>
             <p class="mt-2 text-sm text-slate-700">{{ detail.validasi.status_validasi }}{{ detail.validasi.catatan ? ` — ${detail.validasi.catatan}` : "" }}</p>
@@ -166,13 +167,13 @@
               </div>
               <div>
                 <p class="font-semibold text-slate-900">NIM</p>
-                <p>{{ detail?.pelapor?.nim || detail?.nim || "-" }}</p>
+                <p>{{ detail?.user?.mahasiswa?.nim || detail?.pelapor?.nim || detail?.nim || "-" }}</p>
               </div>
             </div>
             <div class="grid gap-3 sm:grid-cols-2">
               <div>
                 <p class="font-semibold text-slate-900">Program Studi</p>
-                <p>{{ detail?.pelapor?.prodi || detail?.program_studi || detail?.prodi || "-" }}</p>
+                <p>{{ detail?.user?.mahasiswa?.program_studi || detail?.pelapor?.prodi || detail?.program_studi || detail?.prodi || "-" }}</p>
               </div>
               <div>
                 <p class="font-semibold text-slate-900">Email</p>
@@ -181,6 +182,7 @@
                 </p>
               </div>
             </div>
+            <div class="mt-3"><p class="font-semibold text-slate-900">Angkatan</p><p>{{ detail?.user?.mahasiswa?.angkatan || detail?.angkatan || "-" }}</p></div>
           </div>
         </div>
         <div

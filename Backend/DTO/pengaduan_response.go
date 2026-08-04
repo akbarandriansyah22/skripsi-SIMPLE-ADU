@@ -1,33 +1,47 @@
 package dto
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type PengaduanResponse struct {
-	ID               uint                      `json:"id"`
-	KodeTiket        string                    `json:"kode_tiket"`
-	UserID           uint                      `json:"user_id"`
-	KategoriID       uint                      `json:"kategori_id"`
-	Kategori         *KategoriResponse         `json:"kategori,omitempty"`
-	UnitID           *uint                     `json:"unit_id,omitempty"`
-	Unit             *UnitResponse             `json:"unit,omitempty"`
-	User             *UserResponse             `json:"user,omitempty"`
-	Judul            string                    `json:"judul"`
-	Deskripsi        string                    `json:"deskripsi"`
-	Lampiran         string                    `json:"lampiran"`
-	LampiranNamaAsli string                    `json:"lampiran_nama_asli,omitempty"`
-	LampiranMimeType string                    `json:"lampiran_mime_type,omitempty"`
-	LampiranUkuran   int64                     `json:"lampiran_ukuran,omitempty"`
-	LampiranURL      string                    `json:"lampiran_url,omitempty"`
-	Status           string                    `json:"status"`
-	SkorSentimen     *int                      `json:"skor_sentimen,omitempty"`
-	Sentimen         string                    `json:"sentimen,omitempty"`
-	Urgensi          string                    `json:"urgensi,omitempty"`
-	AIStatus         string                    `json:"ai_status"`
-	Validasi         *ValidasiResponse         `json:"validasi,omitempty"`
-	Disposisi        *DisposisiResponse        `json:"disposisi,omitempty"`
-	RiwayatStatus    []RiwayatStatusResponse   `json:"riwayat_status_pengaduan,omitempty"`
-	ResponPengaduan  []ResponPengaduanResponse `json:"respon_pengaduan,omitempty"`
-	CreatedAt        time.Time                 `json:"created_at"`
+	ID                   uint                      `json:"id"`
+	KodeTiket            string                    `json:"kode_tiket"`
+	UserID               uint                      `json:"user_id"`
+	KategoriID           uint                      `json:"kategori_id"`
+	Kategori             *KategoriResponse         `json:"kategori,omitempty"`
+	UnitID               *uint                     `json:"unit_id,omitempty"`
+	Unit                 *UnitResponse             `json:"unit,omitempty"`
+	User                 *UserResponse             `json:"user,omitempty"`
+	Judul                string                    `json:"judul"`
+	Deskripsi            string                    `json:"deskripsi"`
+	Lampiran             string                    `json:"lampiran"`
+	LampiranNamaAsli     string                    `json:"lampiran_nama_asli,omitempty"`
+	LampiranMimeType     string                    `json:"lampiran_mime_type,omitempty"`
+	LampiranUkuran       int64                     `json:"lampiran_ukuran,omitempty"`
+	LampiranURL          string                    `json:"lampiran_url,omitempty"`
+	Status               string                    `json:"status"`
+	SkorSentimen         *int                      `json:"skor_sentimen,omitempty"`
+	Sentimen             string                    `json:"sentimen,omitempty"`
+	Urgensi              string                    `json:"urgensi,omitempty"`
+	SkorPositif          *int                      `json:"skor_positif,omitempty"`
+	SkorNegatif          *int                      `json:"skor_negatif,omitempty"`
+	SentimentScore       *int                      `json:"sentiment_score,omitempty"`
+	MatchedWords         json.RawMessage           `json:"matched_words,omitempty"`
+	CleanedText          string                    `json:"cleaned_text,omitempty"`
+	SentimentExplanation string                    `json:"sentiment_explanation,omitempty"`
+	UrgencyScore         int                       `json:"urgency_score,omitempty"`
+	UrgencyReason        string                    `json:"urgency_reason,omitempty"`
+	AIStatus             string                    `json:"ai_status"`
+	Validasi             *ValidasiResponse         `json:"validasi,omitempty"`
+	Disposisi            *DisposisiResponse        `json:"disposisi,omitempty"`
+	RiwayatStatus        []RiwayatStatusResponse   `json:"riwayat_status_pengaduan,omitempty"`
+	ResponPengaduan      []ResponPengaduanResponse `json:"respon_pengaduan,omitempty"`
+	CreatedAt            time.Time                 `json:"created_at"`
+	UpdatedAt            time.Time                 `json:"updated_at"`
+	TanggalMasukPimpinan *time.Time                `json:"tanggal_masuk_pimpinan,omitempty"`
+	KoordinasiInternal   []KoordinasiResponse      `json:"koordinasi_internal,omitempty"`
 }
 
 type KategoriResponse struct {
@@ -40,6 +54,13 @@ type UnitResponse struct {
 	NamaUnit string `json:"nama_unit"`
 }
 
+type MahasiswaIdentityResponse struct {
+	NamaLengkap  string `json:"nama_lengkap"`
+	NIM          string `json:"nim"`
+	ProgramStudi string `json:"program_studi"`
+	Angkatan     int    `json:"angkatan"`
+}
+
 type ValidasiResponse struct {
 	ID              uint   `json:"id"`
 	AdminFakultasID uint   `json:"admin_fakultas_id"`
@@ -48,10 +69,11 @@ type ValidasiResponse struct {
 }
 
 type DisposisiResponse struct {
-	ID         uint   `json:"id"`
-	PimpinanID uint   `json:"pimpinan_id"`
-	UnitID     uint   `json:"unit_id"`
-	Catatan    string `json:"catatan"`
+	ID         uint          `json:"id"`
+	PimpinanID uint          `json:"pimpinan_id"`
+	UnitID     uint          `json:"unit_id"`
+	Catatan    string        `json:"catatan"`
+	Unit       *UnitResponse `json:"unit,omitempty"`
 }
 
 type RiwayatStatusResponse struct {

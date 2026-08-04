@@ -37,6 +37,15 @@ class PredictResponse(BaseModel):
     score: int
     sentiment: str
     urgency: str
+    positive_score: int
+    negative_score: int
+    sentiment_score: int
+    sentiment_label: str
+    matched_words: list[dict[str, Any]]
+    sentiment_explanation: str
+    urgency_score: int
+    urgency_label: str
+    urgency_reason: str
 
 
 @router.post("/predict", response_model=PredictResponse, status_code=status.HTTP_200_OK)
