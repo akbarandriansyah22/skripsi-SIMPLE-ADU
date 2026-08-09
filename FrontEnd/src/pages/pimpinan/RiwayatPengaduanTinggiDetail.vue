@@ -79,14 +79,23 @@
           <article class="rounded-xl border border-amber-200 bg-amber-50 p-5 shadow-sm sm:p-6">
             <h3 class="text-sm font-bold text-slate-950">Koordinasi Internal</h3>
             <p class="mt-1 text-xs text-slate-600">Pesan internal Pimpinan dan unit yang ditugaskan.</p>
-            <div v-if="item.koordinasi_internal?.length" class="mt-4 space-y-3">
-              <div v-for="message in item.koordinasi_internal" :key="message.id" class="rounded-xl border border-amber-100 bg-white p-3">
+            <div v-if="coordinationError" class="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">{{ coordinationError }}</div>
+            <div v-else-if="coordinationLoading" class="mt-4 rounded-lg border border-amber-100 bg-white p-4 text-xs text-slate-500">Memuat percakapan koordinasi...</div>
+            <div v-else-if="coordination.length" class="mt-4 space-y-3">
+              <div v-for="message in coordination" :key="message.id" class="rounded-xl border border-amber-100 bg-white p-3">
                 <div class="flex flex-wrap justify-between gap-2 text-[11px] text-slate-500"><span class="font-semibold text-slate-900">{{ message.sender_name }} · {{ message.sender_role }}</span><span>{{ dateLabel(message.created_at, true) }}</span></div>
                 <p class="mt-2 whitespace-pre-line text-xs text-slate-700">{{ message.pesan }}</p>
                 <a v-if="coordinationAttachment(message)" :href="coordinationAttachment(message)" target="_blank" rel="noreferrer" class="mt-2 inline-flex text-xs font-semibold text-blue-950 hover:underline">Buka lampiran koordinasi</a>
               </div>
             </div>
             <p v-else class="mt-4 text-xs text-slate-500">Belum ada koordinasi internal.</p>
+            <form class="mt-4 space-y-2" @submit.prevent="sendCoordination">
+              <textarea v-model="coordinationText" rows="3" maxlength="5000" :disabled="sendingCoordination" class="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/10" placeholder="Tulis balasan koordinasi kepada Kasubag..."></textarea>
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <p v-if="sendCoordinationError" class="text-xs text-red-700">{{ sendCoordinationError }}</p>
+                <button type="submit" :disabled="sendingCoordination || !coordinationText.trim() || !pengaduanId" class="rounded-full bg-amber-600 px-4 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{{ sendingCoordination ? 'Mengirim...' : 'Kirim Balasan' }}</button>
+              </div>
+            </form>
           </article>
         </div>
 
@@ -109,22 +118,31 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import PimpinanLayout from '../../layouts/PimpinanLayout.vue'
 import StatusBadge from '../../components/StatusBadge.vue'
 import service from '../../services/pimpinan.service'
 import { dateLabel, errorMessage, responseData } from '../../utils/api'
+import { useToastStore } from '../../stores/toast'
 
 const route = useRoute()
+const toast = useToastStore()
 const item = ref(null)
 const loading = ref(true)
 const error = ref('')
 const attachmentUrl = ref('')
 const coordinationAttachmentUrls = ref({})
+const coordination = ref([])
+const coordinationLoading = ref(false)
+const coordinationError = ref('')
+const coordinationText = ref('')
+const sendCoordinationError = ref('')
+const sendingCoordination = ref(false)
 
 const studentName = computed(() => item.value?.user?.mahasiswa?.nama_lengkap || item.value?.user?.nama_lengkap || '-')
 const unitName = computed(() => item.value?.unit?.nama_unit || item.value?.disposisi?.unit?.nama_unit || '-')
+const pengaduanId = computed(() => Number(item.value?.id) || 0)
 const timeline = computed(() => [...(item.value?.riwayat_status_pengaduan || [])].sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()))
 const matchedWords = computed(() => {
   const value = item.value?.matched_words
@@ -143,18 +161,59 @@ const attachment = computed(() => {
 function ticket(value) { return value.kode_tiket || `ADU-${value.id}` }
 function coordinationAttachment(message) { return coordinationAttachmentUrls.value[message.id] || '' }
 
-async function load() {
-  loading.value = true
-  error.value = ''
+function revokeCoordinationAttachments() {
+  Object.values(coordinationAttachmentUrls.value).forEach((url) => URL.revokeObjectURL(url))
+  coordinationAttachmentUrls.value = {}
+}
+
+async function loadCoordination() {
+  if (!pengaduanId.value) return
+  coordinationLoading.value = true
+  coordinationError.value = ''
+  revokeCoordinationAttachments()
   try {
-    item.value = responseData(await service.historyDetail(route.params.id))
-    if (item.value?.lampiran_url) attachmentUrl.value = URL.createObjectURL(await service.getAttachment(item.value.lampiran_url))
-    await Promise.all((item.value?.koordinasi_internal || []).map(async (message) => {
+    coordination.value = responseData(await service.coordination(pengaduanId.value), []) || []
+    await Promise.all(coordination.value.map(async (message) => {
       if (!message.lampiran_url) return
       try {
         coordinationAttachmentUrls.value[message.id] = URL.createObjectURL(await service.getAttachment(message.lampiran_url))
       } catch {}
     }))
+  } catch (err) {
+    coordination.value = []
+    coordinationError.value = errorMessage(err, 'Percakapan koordinasi tidak dapat dimuat.')
+  } finally {
+    coordinationLoading.value = false
+  }
+}
+
+async function sendCoordination() {
+  sendCoordinationError.value = ''
+  if (!pengaduanId.value || !coordinationText.value.trim() || sendingCoordination.value) return
+  sendingCoordination.value = true
+  try {
+    await service.sendCoordination(pengaduanId.value, { pesan: coordinationText.value.trim() })
+    coordinationText.value = ''
+    await loadCoordination()
+    toast.add({ type: 'success', message: 'Balasan koordinasi berhasil dikirim.' })
+  } catch (err) {
+    sendCoordinationError.value = errorMessage(err, 'Balasan koordinasi gagal dikirim.')
+  } finally {
+    sendingCoordination.value = false
+  }
+}
+
+async function load() {
+  loading.value = true
+  error.value = ''
+  coordinationError.value = ''
+  coordinationText.value = ''
+  try {
+    if (attachmentUrl.value) URL.revokeObjectURL(attachmentUrl.value)
+    attachmentUrl.value = ''
+    item.value = responseData(await service.historyDetail(route.params.id))
+    if (item.value?.lampiran_url) attachmentUrl.value = URL.createObjectURL(await service.getAttachment(item.value.lampiran_url))
+    await loadCoordination()
   } catch (err) {
     error.value = errorMessage(err, 'Detail riwayat tidak dapat dimuat.')
   } finally {
@@ -163,8 +222,9 @@ async function load() {
 }
 
 onMounted(load)
+watch(() => route.params.id, load)
 onBeforeUnmount(() => {
   if (attachmentUrl.value) URL.revokeObjectURL(attachmentUrl.value)
-  Object.values(coordinationAttachmentUrls.value).forEach((url) => URL.revokeObjectURL(url))
+  revokeCoordinationAttachments()
 })
 </script>
