@@ -31,6 +31,7 @@ const cards = computed(() => [
 ])
 const quickActions = [
   { to: '/admin-sistem/pengguna', label: 'Tambah Pengguna', description: 'Buat dan kelola akun internal.' },
+  { to: '/admin-sistem/import-mahasiswa', label: 'Import Mahasiswa', description: 'Unggah CSV/XLSX dan buat akun mahasiswa.' },
   { to: '/admin-sistem/unit', label: 'Kelola Unit', description: 'Atur unit untuk kebutuhan sistem.' },
   { to: '/admin-sistem/kategori', label: 'Kelola Kategori', description: 'Atur kategori pengaduan.' },
 ]

@@ -17,6 +17,8 @@ const setUnitStatus = (id, payload) => api.patch(`/api/admin-sistem/units/${id}/
 const setCategoryStatus = (id, payload) => api.patch(`/api/admin-sistem/categories/${id}/status`, payload)
 const downloadImportTemplate = () => api.get('/api/admin-sistem/mahasiswa/template', { responseType: 'blob' })
 const importMahasiswa = (payload) => api.post('/api/admin-sistem/mahasiswa/import', payload)
+const importHistory = () => api.get('/api/admin-sistem/mahasiswa/import-history')
+const importHistoryDetail = (id) => api.get(`/api/admin-sistem/mahasiswa/import-history/${id}`)
 
 export default {
   dashboard,
@@ -36,4 +38,6 @@ export default {
   setCategoryStatus,
   downloadImportTemplate,
   importMahasiswa,
+  importHistory,
+  importHistoryDetail,
 }

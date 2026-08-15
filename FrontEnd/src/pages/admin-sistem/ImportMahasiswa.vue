@@ -9,16 +9,73 @@
         <p class="mt-3 text-[11px] text-slate-500">Akun berhasil dibuat dengan password sementara dan wajib menggantinya saat login pertama.</p>
       </section>
       <section v-if="result" class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div class="grid gap-3 border-b border-slate-200 bg-slate-50 p-4 text-xs sm:grid-cols-3"><div><span class="text-slate-500">Total</span><p class="font-bold text-slate-950">{{ result.total_rows }}</p></div><div><span class="text-slate-500">Berhasil</span><p class="font-bold text-emerald-700">{{ result.success_rows }}</p></div><div><span class="text-slate-500">Gagal</span><p class="font-bold text-red-700">{{ result.failed_rows }}</p></div></div><div class="overflow-x-auto"><table class="min-w-[720px] w-full text-left text-xs"><thead class="text-[11px] uppercase tracking-wider text-slate-500"><tr><th class="px-4 py-3">Baris</th><th class="px-4 py-3">NIM</th><th class="px-4 py-3">Email</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Keterangan</th></tr></thead><tbody class="divide-y divide-slate-200"><tr v-for="row in result.rows" :key="row.row_number"><td class="px-4 py-3">{{ row.row_number }}</td><td class="px-4 py-3">{{ row.nim }}</td><td class="px-4 py-3">{{ row.email }}</td><td class="px-4 py-3"><span :class="row.status === 'berhasil' ? 'text-emerald-700' : 'text-red-700'" class="font-semibold">{{ row.status }}</span></td><td class="px-4 py-3 text-slate-600">{{ row.reason || (row.temporary_password ? `Password sementara: ${row.temporary_password}` : '-') }}</td></tr></tbody></table></div></section>
+      <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+          <div>
+            <h3 class="text-sm font-bold text-slate-950">Riwayat Import</h3>
+            <p class="mt-1 text-xs text-slate-500">Batch import sebelumnya. Password sementara hanya tampil pada hasil import terbaru.</p>
+          </div>
+          <button type="button" class="text-xs font-semibold text-blue-950 underline" @click="loadHistory">Muat Ulang</button>
+        </div>
+        <div v-if="historyError" class="px-4 py-3 text-xs text-red-700">{{ historyError }}</div>
+        <div class="overflow-x-auto">
+          <table class="min-w-[720px] w-full text-left text-xs">
+            <thead class="text-[11px] uppercase tracking-wider text-slate-500">
+              <tr>
+                <th class="px-4 py-3">Waktu</th>
+                <th class="px-4 py-3">File</th>
+                <th class="px-4 py-3">Total</th>
+                <th class="px-4 py-3">Berhasil</th>
+                <th class="px-4 py-3">Gagal</th>
+                <th class="px-4 py-3">Aksi</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200">
+              <tr v-if="historyLoading"><td colspan="6" class="px-4 py-8 text-center text-slate-500">Memuat riwayat...</td></tr>
+              <tr v-else-if="!history.length"><td colspan="6" class="px-4 py-8 text-center text-slate-500">Belum ada riwayat import.</td></tr>
+              <tr v-for="batch in history" :key="batch.id">
+                <td class="px-4 py-3 whitespace-nowrap">{{ dateLabel(batch.created_at, true) }}</td>
+                <td class="px-4 py-3">{{ batch.file_name }}</td>
+                <td class="px-4 py-3">{{ batch.total_rows }}</td>
+                <td class="px-4 py-3 text-emerald-700">{{ batch.success_rows }}</td>
+                <td class="px-4 py-3 text-red-700">{{ batch.failed_rows }}</td>
+                <td class="px-4 py-3"><button type="button" class="font-semibold text-blue-950 hover:underline" @click="openBatch(batch.id)">Lihat baris</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-if="batchDetail" class="border-t border-slate-200">
+          <p class="px-4 py-3 text-xs font-semibold text-slate-700">Detail batch #{{ batchDetail.id }} — {{ batchDetail.file_name }}</p>
+          <div class="overflow-x-auto">
+            <table class="min-w-[720px] w-full text-left text-xs">
+              <thead class="text-[11px] uppercase tracking-wider text-slate-500"><tr><th class="px-4 py-3">Baris</th><th class="px-4 py-3">NIM</th><th class="px-4 py-3">Email</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Keterangan</th></tr></thead>
+              <tbody class="divide-y divide-slate-200">
+                <tr v-for="row in batchDetail.rows || []" :key="row.row_number">
+                  <td class="px-4 py-3">{{ row.row_number }}</td>
+                  <td class="px-4 py-3">{{ row.nim }}</td>
+                  <td class="px-4 py-3">{{ row.email }}</td>
+                  <td class="px-4 py-3"><span :class="row.status === 'berhasil' ? 'text-emerald-700' : 'text-red-700'" class="font-semibold">{{ row.status }}</span></td>
+                  <td class="px-4 py-3 text-slate-600">{{ row.reason || '-' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </section>
   </AdminSistemLayout>
 </template>
 <script setup>
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import AdminSistemLayout from '../../layouts/AdminSistemLayout.vue'
 import service from '../../services/admin-sistem.service'
-import { errorMessage } from '../../utils/api'
+import { dateLabel, errorMessage, responseData } from '../../utils/api'
 const file = ref(null); const result = ref(null); const error = ref(''); const success = ref(''); const uploading = ref(false); const downloading = ref(false)
+const history = ref([]); const historyLoading = ref(false); const historyError = ref(''); const batchDetail = ref(null)
 function selectFile(event) { file.value = event.target.files?.[0] || null; error.value = ''; result.value = null; if (file.value && !/\.(csv|xlsx)$/i.test(file.value.name)) { error.value = 'Pilih file CSV atau XLSX.'; file.value = null } }
 async function downloadTemplate() { downloading.value = true; try { const response = await service.downloadImportTemplate(); const url = URL.createObjectURL(response.data); const link = document.createElement('a'); link.href = url; link.download = 'template-mahasiswa.csv'; link.click(); URL.revokeObjectURL(url) } catch (err) { error.value = errorMessage(err, 'Template tidak dapat diunduh.') } finally { downloading.value = false } }
-async function submit() { if (!file.value || uploading.value) return; uploading.value = true; error.value = ''; success.value = ''; const payload = new FormData(); payload.append('file', file.value); try { const response = await service.importMahasiswa(payload); result.value = response.data?.data || response.data; success.value = 'Import selesai. Simpan password sementara untuk mahasiswa yang berhasil.' } catch (err) { error.value = errorMessage(err, 'Import gagal.') } finally { uploading.value = false } }
+async function submit() { if (!file.value || uploading.value) return; uploading.value = true; error.value = ''; success.value = ''; const payload = new FormData(); payload.append('file', file.value); try { const response = await service.importMahasiswa(payload); result.value = response.data?.data || response.data; success.value = 'Import selesai. Simpan password sementara untuk mahasiswa yang berhasil.'; await loadHistory() } catch (err) { error.value = errorMessage(err, 'Import gagal.') } finally { uploading.value = false } }
+async function loadHistory() { historyLoading.value = true; historyError.value = ''; try { history.value = responseData(await service.importHistory(), []) || [] } catch (err) { historyError.value = errorMessage(err, 'Riwayat import tidak dapat dimuat.') } finally { historyLoading.value = false } }
+async function openBatch(id) { try { batchDetail.value = responseData(await service.importHistoryDetail(id)) } catch (err) { historyError.value = errorMessage(err, 'Detail batch tidak dapat dimuat.') } }
+onMounted(loadHistory)
 </script>

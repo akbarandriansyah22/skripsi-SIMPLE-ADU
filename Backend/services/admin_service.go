@@ -129,16 +129,7 @@ func (s *AdminService) ForwardToPimpinan(adminID, id uint64) error {
 	}
 	return config.DB.Transaction(func(tx *gorm.DB) error {
 		if strings.EqualFold(pengaduan.Status, StatusMenungguDisposisi) {
-			var pimpinan []models.User
-			if err := tx.Where("role = ? AND is_active = ?", utils.RolePimpinan, true).Find(&pimpinan).Error; err != nil {
-				return err
-			}
-			for _, user := range pimpinan {
-				if err := createNotification(tx, user.ID, pengaduan.ID, "Pengaduan Urgensi Tinggi", "Pengaduan "+pengaduan.KodeTiket+" menunggu disposisi."); err != nil {
-					return err
-				}
-			}
-			return nil
+			return notifyActivePimpinan(tx, pengaduan.ID, "Pengaduan Urgensi Tinggi", "Pengaduan "+pengaduan.KodeTiket+" menunggu disposisi.")
 		}
 		if err := tx.Model(&models.Pengaduan{}).Where("id = ? AND status = ?", id, StatusMenunggu).Update("status", StatusMenungguDisposisi).Error; err != nil {
 			return err
@@ -146,16 +137,7 @@ func (s *AdminService) ForwardToPimpinan(adminID, id uint64) error {
 		if err := recordStatusChange(tx, pengaduan.ID, uint(adminID), pengaduan.Status, StatusMenungguDisposisi, "Menunggu disposisi pimpinan"); err != nil {
 			return err
 		}
-		var pimpinan []models.User
-		if err := tx.Where("role = ? AND is_active = ?", utils.RolePimpinan, true).Find(&pimpinan).Error; err != nil {
-			return err
-		}
-		for _, user := range pimpinan {
-			if err := createNotification(tx, user.ID, pengaduan.ID, "Pengaduan Urgensi Tinggi", "Pengaduan "+pengaduan.KodeTiket+" menunggu disposisi."); err != nil {
-				return err
-			}
-		}
-		return nil
+		return notifyActivePimpinan(tx, pengaduan.ID, "Pengaduan Urgensi Tinggi", "Pengaduan "+pengaduan.KodeTiket+" menunggu disposisi.")
 	})
 }
 
@@ -207,14 +189,8 @@ func (s *AdminService) ValidatePengaduan(adminID, id uint64, req dto.ValidatePen
 			return err
 		}
 		if nextStatus == StatusMenungguDisposisi {
-			var pimpinan []models.User
-			if err := tx.Where("role = ? AND is_active = ?", utils.RolePimpinan, true).Find(&pimpinan).Error; err != nil {
+			if err := notifyActivePimpinan(tx, pengaduan.ID, "Pengaduan Urgensi Tinggi", "Pengaduan "+pengaduan.KodeTiket+" menunggu disposisi."); err != nil {
 				return err
-			}
-			for _, user := range pimpinan {
-				if err := createNotification(tx, user.ID, pengaduan.ID, "Pengaduan Urgensi Tinggi", "Pengaduan "+pengaduan.KodeTiket+" menunggu disposisi."); err != nil {
-					return err
-				}
 			}
 		}
 		return createNotification(tx, pengaduan.UserID, pengaduan.ID, "Validasi Aduan", "Aduan "+pengaduan.KodeTiket+" telah "+status+".")

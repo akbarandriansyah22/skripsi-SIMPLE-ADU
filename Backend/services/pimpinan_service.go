@@ -149,18 +149,25 @@ func (s *PimpinanService) GetRiwayatUrgensiTinggiDetail(id uint64) (*dto.Pengadu
 	if entryAt, ok := pimpinanEntryTime(item); ok {
 		result.TanggalMasukPimpinan = timePointer(entryAt)
 	}
-	var coordination []models.KoordinasiInternal
-	if err := config.DB.Preload("Sender").Where("pengaduan_id = ?", item.ID).Order("created_at ASC").Find(&coordination).Error; err != nil {
+	if err := attachCoordination(result, item.ID); err != nil {
 		return nil, err
+	}
+	return result, nil
+}
+
+func attachCoordination(result *dto.PengaduanResponse, pengaduanID uint) error {
+	var coordination []models.KoordinasiInternal
+	if err := config.DB.Preload("Sender").Where("pengaduan_id = ?", pengaduanID).Order("created_at ASC").Find(&coordination).Error; err != nil {
+		return err
 	}
 	for _, message := range coordination {
 		mapped := mapCoordination(message)
 		if message.Lampiran != "" {
-			mapped.LampiranURL = "/api/pengaduan/" + formatUint(item.ID) + "/koordinasi/" + formatUint(uint(message.ID)) + "/lampiran"
+			mapped.LampiranURL = "/api/pengaduan/" + formatUint(pengaduanID) + "/koordinasi/" + formatUint(uint(message.ID)) + "/lampiran"
 		}
 		result.KoordinasiInternal = append(result.KoordinasiInternal, mapped)
 	}
-	return result, nil
+	return nil
 }
 
 func (s *PimpinanService) isPimpinanHistoryItem(item *models.Pengaduan) bool {
@@ -220,7 +227,14 @@ func (s *PimpinanService) GetPengaduan(id uint64) (*dto.PengaduanResponse, error
 	if err != nil {
 		return nil, err
 	}
-	return mapPengaduanResponse(item), nil
+	result := mapPengaduanResponse(item)
+	if err := attachCoordination(result, item.ID); err != nil {
+		return nil, err
+	}
+	if entryAt, ok := pimpinanEntryTime(item); ok {
+		result.TanggalMasukPimpinan = timePointer(entryAt)
+	}
+	return result, nil
 }
 
 func (s *PimpinanService) Monitoring() ([]dto.PengaduanResponse, error) {
@@ -228,7 +242,34 @@ func (s *PimpinanService) Monitoring() ([]dto.PengaduanResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	return mapPengaduanResponses(items), nil
+	result := make([]dto.PengaduanResponse, 0)
+	for index := range items {
+		item := &items[index]
+		if !isMonitoringItem(item) {
+			continue
+		}
+		mapped := mapPengaduanResponse(item)
+		if entryAt, ok := pimpinanEntryTime(item); ok {
+			mapped.TanggalMasukPimpinan = timePointer(entryAt)
+		}
+		result = append(result, *mapped)
+	}
+	return result, nil
+}
+
+func isMonitoringItem(item *models.Pengaduan) bool {
+	if item.Disposisi != nil || item.UnitID != nil {
+		return true
+	}
+	switch strings.ToLower(item.Status) {
+	case strings.ToLower(StatusMenungguDisposisi), strings.ToLower(StatusDiteruskanUnit), strings.ToLower(StatusDiproses), strings.ToLower(StatusSelesai):
+		return true
+	default:
+		return item.HasilAI != nil &&
+			strings.EqualFold(item.HasilAI.Urgensi, "Tinggi") &&
+			item.Validasi != nil &&
+			strings.EqualFold(item.Validasi.StatusValidasi, "Diterima")
+	}
 }
 
 func (s *PimpinanService) CreateDisposisi(pimpinanID uint, pengaduanID uint64, req dto.DisposisiRequest) error {

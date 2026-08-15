@@ -28,6 +28,8 @@ func AdminSistemRoutes(r *gin.Engine) {
 		api.PATCH("/categories/:id/status", c.SetCategoryStatus)
 		api.GET("/mahasiswa/template", c.ImportTemplate)
 		api.POST("/mahasiswa/import", c.ImportMahasiswa)
+		api.GET("/mahasiswa/import-history", c.ImportHistory)
+		api.GET("/mahasiswa/import-history/:id", c.ImportHistoryDetail)
 	}
 	// Frontend compatibility: older Admin Sistem screens used /api/admin/users.
 	legacy := r.Group("/api/admin")

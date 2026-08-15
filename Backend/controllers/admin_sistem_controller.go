@@ -188,6 +188,22 @@ func (c *AdminSistemController) ImportMahasiswa(ctx *gin.Context) {
 	}
 	ctx.JSON(http.StatusOK, gin.H{"success": true, "message": "Import mahasiswa selesai", "data": result})
 }
+func (c *AdminSistemController) ImportHistory(ctx *gin.Context) {
+	data, err := c.service.ImportHistory()
+	c.respond(ctx, data, err, http.StatusOK)
+}
+func (c *AdminSistemController) ImportHistoryDetail(ctx *gin.Context) {
+	id, ok := getIDParam(ctx, "id")
+	if !ok {
+		return
+	}
+	data, err := c.service.ImportHistoryDetail(id)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"success": true, "data": data})
+}
 func (c *AdminSistemController) respond(ctx *gin.Context, data any, err error, successStatus int) {
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})

@@ -19,6 +19,9 @@ import PimpinanValidasi from '../pages/pimpinan/ValidasiAduan.vue'
 import PimpinanDisposisi from '../pages/pimpinan/Disposisi.vue'
 import PimpinanRiwayatTinggi from '../pages/pimpinan/RiwayatPengaduanTinggi.vue'
 import PimpinanRiwayatTinggiDetail from '../pages/pimpinan/RiwayatPengaduanTinggiDetail.vue'
+import PimpinanMonitoring from '../pages/pimpinan/Monitoring.vue'
+import PimpinanMonitoringDetail from '../pages/pimpinan/MonitoringDetail.vue'
+import PimpinanNotifikasi from '../pages/pimpinan/Notifikasi.vue'
 import KasubagDashboard from '../pages/kasubag/Dashboard.vue'
 import KasubagPengaduan from '../pages/kasubag/PengaduanList.vue'
 import KasubagDetail from '../pages/kasubag/PengaduanDetail.vue'
@@ -57,6 +60,9 @@ const routes = [
   { path: '/pimpinan/disposisi', name: 'PimpinanDisposisi', component: PimpinanDisposisi, meta: { requiresAuth: true, role: 'pimpinan' } },
   { path: '/pimpinan/riwayat-tinggi', name: 'PimpinanRiwayatTinggi', component: PimpinanRiwayatTinggi, meta: { requiresAuth: true, role: 'pimpinan' } },
   { path: '/pimpinan/riwayat-tinggi/:id', name: 'PimpinanRiwayatTinggiDetail', component: PimpinanRiwayatTinggiDetail, props: true, meta: { requiresAuth: true, role: 'pimpinan' } },
+  { path: '/pimpinan/monitoring', name: 'PimpinanMonitoring', component: PimpinanMonitoring, meta: { requiresAuth: true, role: 'pimpinan' } },
+  { path: '/pimpinan/monitoring/:id', name: 'PimpinanMonitoringDetail', component: PimpinanMonitoringDetail, props: true, meta: { requiresAuth: true, role: 'pimpinan' } },
+  { path: '/pimpinan/notifikasi', name: 'PimpinanNotifikasi', component: PimpinanNotifikasi, meta: { requiresAuth: true, role: 'pimpinan' } },
   { path: '/kasubag/dashboard', name: 'KasubagDashboard', component: KasubagDashboard, meta: { requiresAuth: true, role: 'kasubag' } },
   { path: '/kasubag/pengaduan', name: 'KasubagPengaduan', component: KasubagPengaduan, meta: { requiresAuth: true, role: 'kasubag' } },
   { path: '/kasubag/pengaduan/:id', name: 'KasubagDetail', component: KasubagDetail, props: true, meta: { requiresAuth: true, role: 'kasubag' } },

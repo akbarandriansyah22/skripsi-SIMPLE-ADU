@@ -131,11 +131,17 @@ func (s *KasubagService) ReturnToAdmin(userID, complaintID uint64, reason string
 	if err := s.assertUnit(userID, complaint.UnitID); err != nil {
 		return err
 	}
+	if !strings.EqualFold(complaint.Status, StatusDiteruskanUnit) && !strings.EqualFold(complaint.Status, StatusDiproses) {
+		return errors.New("aduan hanya dapat dikembalikan saat Diteruskan ke Unit atau Diproses")
+	}
 	if strings.TrimSpace(reason) == "" {
 		return errors.New("alasan pengembalian wajib diisi")
 	}
 	return config.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&models.Pengaduan{}).Where("id = ? AND unit_id = ?", complaintID, *complaint.UnitID).Updates(map[string]interface{}{"unit_id": nil, "status": StatusMenunggu}).Error; err != nil {
+		if err := tx.Model(&models.Pengaduan{}).Where("id = ? AND unit_id = ? AND status IN (?, ?)", complaintID, *complaint.UnitID, StatusDiteruskanUnit, StatusDiproses).Updates(map[string]interface{}{"unit_id": nil, "status": StatusMenunggu}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("pengaduan_id = ?", complaint.ID).Delete(&models.Disposisi{}).Error; err != nil {
 			return err
 		}
 		if err := recordStatusChange(tx, complaint.ID, uint(userID), complaint.Status, StatusMenunggu, reason); err != nil {

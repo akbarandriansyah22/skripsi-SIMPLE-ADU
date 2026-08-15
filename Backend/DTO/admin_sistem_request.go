@@ -51,3 +51,14 @@ type ImportMahasiswaResponse struct {
 	FailedRows  int                          `json:"failed_rows"`
 	Rows        []ImportMahasiswaRowResponse `json:"rows"`
 }
+
+type ImportMahasiswaBatchResponse struct {
+	ID          uint                         `json:"id"`
+	ImportedBy  uint                         `json:"imported_by"`
+	FileName    string                       `json:"file_name"`
+	TotalRows   int                          `json:"total_rows"`
+	SuccessRows int                          `json:"success_rows"`
+	FailedRows  int                          `json:"failed_rows"`
+	CreatedAt   string                       `json:"created_at"`
+	Rows        []ImportMahasiswaRowResponse `json:"rows,omitempty"`
+}

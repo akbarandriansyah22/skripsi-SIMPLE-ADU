@@ -95,6 +95,12 @@
         >
           Validasi Sekarang
         </router-link>
+        <router-link
+          to="/pimpinan/monitoring"
+          class="mt-3 block rounded-lg bg-slate-100 px-4 py-3 text-center text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
+        >
+          Pantau Progress Aduan
+        </router-link>
       </div>
     </section>
   </PimpinanLayout>

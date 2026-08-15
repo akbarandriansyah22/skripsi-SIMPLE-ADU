@@ -62,6 +62,9 @@ func SeedDemoData(db *gorm.DB) error {
 			return err
 		}
 	}
+	if err := seedDemoHighUrgencyComplaint(db); err != nil {
+		return err
+	}
 	log.Println("✅ Demo data seeded idempotently")
 	return nil
 }
@@ -171,6 +174,91 @@ func upsertDemoMahasiswa(tx *gorm.DB, userID uint, demo demoUser) error {
 		return tx.Create(&models.Mahasiswa{UserID: userID, NIM: demo.NIM, ProgramStudi: demo.ProgramStudi, Angkatan: demo.Angkatan, NoHP: demo.NoHP}).Error
 	}
 	return err
+}
+
+// seedDemoHighUrgencyComplaint creates one stable complaint for local demos.
+// It is intentionally inserted with the same AI result that the local AI
+// service would produce for a safety-critical complaint, so the workflow can
+// be tested even when the AI container is not available during seeding.
+func seedDemoHighUrgencyComplaint(db *gorm.DB) error {
+	const (
+		demoEmail = "mahasiswa@simpel-adu.test"
+		ticket    = "ADU-DEMO-TINGGI-001"
+	)
+
+	var user models.User
+	if err := db.Where("LOWER(email) = ?", demoEmail).First(&user).Error; err != nil {
+		return err
+	}
+
+	var category models.KategoriPengaduan
+	if err := db.Where("nama = ?", "Fasilitas").First(&category).Error; err != nil {
+		return err
+	}
+
+	var existing models.Pengaduan
+	err := db.Where("kode_tiket = ?", ticket).First(&existing).Error
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	complaint := &models.Pengaduan{
+		KodeTiket:  ticket,
+		UserID:     user.ID,
+		KategoriID: category.ID,
+		Judul:      "Korsleting listrik di laboratorium komputer",
+		Deskripsi:  "Terjadi korsleting listrik di laboratorium komputer dan muncul asap dari stop kontak. Kondisi ini membahayakan mahasiswa.",
+		Status:     "Menunggu Verifikasi",
+	}
+
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(complaint).Error; err != nil {
+			return err
+		}
+
+		positiveScore := 0
+		negativeScore := -4
+		result := &models.HasilAI{
+			PengaduanID:        complaint.ID,
+			CleanedText:        "terjadi korsleting listrik laboratorium komputer muncul asap stop kontak kondisi membahayakan mahasiswa",
+			Tokens:             models.JSONB(`["terjadi","korsleting","listrik","laboratorium","komputer","muncul","asap","stop","kontak","kondisi","membahayakan","mahasiswa"]`),
+			SkorPositif:        &positiveScore,
+			SkorNegatif:        &negativeScore,
+			SkorSentimen:       negativeScore,
+			Sentimen:           "Negatif",
+			PenjelasanSentimen: "Terdapat kata-kata yang menunjukkan keluhan dan kondisi berbahaya.",
+			DetailSkor:         models.JSONB(`[]`),
+			MatchedWords:       models.JSONB(`[]`),
+			UrgencyScore:       3,
+			UrgencyReason:      "Terdapat indikator bahaya/keselamatan: asap, korsleting.",
+			Urgensi:            "Tinggi",
+			DasarUrgensi:       "Terdapat indikator bahaya/keselamatan: asap, korsleting.",
+		}
+		if err := tx.Create(result).Error; err != nil {
+			return err
+		}
+
+		var admins []models.User
+		if err := tx.Where("role = ? AND is_active = ?", utils.RoleAdminFakultas, true).Find(&admins).Error; err != nil {
+			return err
+		}
+		for _, admin := range admins {
+			complaintID := complaint.ID
+			if err := tx.Create(&models.Notifikasi{
+				UserID:      admin.ID,
+				PengaduanID: &complaintID,
+				Judul:       "Pengaduan Baru",
+				Isi:         "Pengaduan " + complaint.KodeTiket + " menunggu verifikasi.",
+			}).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 func demoPassword() string {

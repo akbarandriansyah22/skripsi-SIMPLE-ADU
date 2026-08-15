@@ -10,6 +10,8 @@ const sendCoordination = (id, payload) => api.post(`/api/pengaduan/${id}/koordin
 const categories = () => api.get('/api/pengaduan/kategori')
 const history = (params = {}) => api.get('/api/pimpinan/pengaduan/riwayat', { params })
 const historyDetail = (id) => api.get(`/api/pimpinan/pengaduan/riwayat/${id}`)
+const monitoring = () => api.get('/api/pimpinan/monitoring')
+const getPengaduan = (id) => api.get(`/api/pimpinan/pengaduan/${id}`)
 const getAttachment = async (url) => (await api.get(url, { responseType: 'blob' })).data
 
-export default { dashboard, urgentReports, createDisposisi, myDisposisi, getUnits, coordination, sendCoordination, categories, history, historyDetail, getAttachment }
+export default { dashboard, urgentReports, createDisposisi, myDisposisi, getUnits, coordination, sendCoordination, categories, history, historyDetail, monitoring, getPengaduan, getAttachment }

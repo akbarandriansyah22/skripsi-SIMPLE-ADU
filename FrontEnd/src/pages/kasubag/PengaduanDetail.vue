@@ -87,7 +87,8 @@
           <p class="mt-1 text-xs text-slate-500">Gunakan status yang tersedia dari backend.</p>
           <form class="mt-4 space-y-3" @submit.prevent="updateStatus">
             <select v-model="nextStatus" :disabled="savingStatus || !statusOptions.length" class="w-full rounded-xl border border-slate-200 px-3 py-3 text-xs disabled:bg-slate-50"><option value="">{{ statusOptions.length ? 'Pilih status berikutnya' : 'Tidak ada aksi status tersedia' }}</option><option v-for="option in statusOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select>
-            <button type="submit" :disabled="savingStatus || !nextStatus" class="w-full rounded-full bg-emerald-600 px-4 py-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{{ savingStatus ? 'Menyimpan...' : 'Simpan Perubahan' }}</button>
+            <textarea v-if="nextStatus === 'returnToAdmin'" v-model="returnReason" rows="3" maxlength="2000" :disabled="savingStatus" placeholder="Tuliskan alasan pengembalian ke Admin Fakultas..." class="w-full resize-y rounded-xl border border-slate-200 px-3 py-3 text-xs text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/10"></textarea>
+            <button type="submit" :disabled="savingStatus || !nextStatus || (nextStatus === 'returnToAdmin' && !returnReason.trim())" class="w-full rounded-full bg-emerald-600 px-4 py-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{{ savingStatus ? 'Menyimpan...' : 'Simpan Perubahan' }}</button>
           </form>
         </article>
 
@@ -102,7 +103,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import KasubagLayout from '../../layouts/KasubagLayout.vue'
 import StatusBadge from '../../components/StatusBadge.vue'
 import service from '../../services/kasubag.service'
@@ -111,6 +112,7 @@ import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toast'
 
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 const toast = useToastStore()
 const item = ref(null)
@@ -123,6 +125,7 @@ const replyError = ref('')
 const sending = ref(false)
 const savingStatus = ref(false)
 const nextStatus = ref('')
+const returnReason = ref('')
 const attachmentUrls = ref({ complaint: '', responses: {} })
 const coordination = ref([]); const coordinationText = ref(''); const coordinationFile = ref(null); const coordinationFileInput = ref(null); const sendingCoordination = ref(false)
 
@@ -130,9 +133,13 @@ const canReply = computed(() => item.value?.status === 'Diproses' && replyText.v
 const conversation = computed(() => [...(item.value?.respon_pengaduan || [])].sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()).map((message) => ({ ...message, isMine: Number(message.user_id) === Number(auth.user?.id) })))
 const history = computed(() => [...(item.value?.riwayat_status_pengaduan || item.value?.riwayat_status || [])].sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()))
 const statusOptions = computed(() => {
-  if (item.value?.status === 'Diteruskan ke Unit') return [{ value: 'Diproses', label: 'Diproses' }]
-  if (item.value?.status === 'Diproses') return [{ value: 'Selesai', label: 'Selesai' }]
-  return []
+  const options = []
+  if (item.value?.status === 'Diteruskan ke Unit') options.push({ value: 'Diproses', label: 'Diproses' })
+  if (item.value?.status === 'Diproses') options.push({ value: 'Selesai', label: 'Selesai' })
+  if (item.value?.status === 'Diteruskan ke Unit' || item.value?.status === 'Diproses') {
+    options.push({ value: 'returnToAdmin', label: 'Kembalikan ke Admin' })
+  }
+  return options
 })
 const attachment = computed(() => {
   const file = item.value?.lampiran
@@ -150,7 +157,7 @@ function formatBytes(value) { if (!value) return ''; if (value < 1024) return `$
 
 async function load() {
   loading.value = true; error.value = ''
-  try { item.value = responseData(await service.getPengaduanById(route.params.id)); nextStatus.value = ''; await loadAttachments(); await loadCoordination() }
+  try { item.value = responseData(await service.getPengaduanById(route.params.id)); nextStatus.value = ''; returnReason.value = ''; await loadAttachments(); await loadCoordination() }
   catch (err) { error.value = errorMessage(err, 'Detail pengaduan tidak dapat dimuat.') }
   finally { loading.value = false }
 }
@@ -183,8 +190,24 @@ async function sendResponse() {
 async function updateStatus() {
   const option = statusOptions.value.find((entry) => entry.value === nextStatus.value)
   if (!option) return
+  if (option.value === 'returnToAdmin' && !returnReason.value.trim()) {
+    toast.add({ type: 'danger', message: 'Alasan pengembalian wajib diisi.' })
+    return
+  }
   savingStatus.value = true
-  try { if (option.value === 'Diproses') await service.startProcess(route.params.id); if (option.value === 'Selesai') await service.finish(route.params.id); toast.add({ type: 'success', message: `Status diperbarui menjadi ${option.label}.` }); await load() }
+  try {
+    if (option.value === 'Diproses') await service.startProcess(route.params.id)
+    if (option.value === 'Selesai') await service.finish(route.params.id)
+    if (option.value === 'returnToAdmin') {
+      await service.returnToAdmin(route.params.id, returnReason.value.trim())
+      returnReason.value = ''
+      toast.add({ type: 'success', message: 'Aduan dikembalikan ke Admin Fakultas.' })
+      await router.push('/kasubag/pengaduan')
+      return
+    }
+    toast.add({ type: 'success', message: `Status diperbarui menjadi ${option.label}.` })
+    await load()
+  }
   catch (err) { toast.add({ type: 'danger', message: errorMessage(err, 'Status gagal diperbarui.') }) }
   finally { savingStatus.value = false }
 }

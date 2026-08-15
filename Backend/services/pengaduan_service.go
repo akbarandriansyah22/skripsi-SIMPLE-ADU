@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	dto "backend/DTO"
 	"backend/config"
@@ -371,19 +370,7 @@ func (s *PengaduanService) Finish(userID uint64, id uint64) error {
 		return ErrForbidden
 	}
 
-	if !strings.EqualFold(pengaduan.Status, StatusDiproses) {
-		return errors.New("pengaduan hanya dapat diselesaikan saat Diproses")
-	}
-	now := time.Now()
-	return config.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&models.Pengaduan{}).Where("id = ? AND user_id = ? AND status = ?", id, userID, StatusDiproses).Updates(map[string]interface{}{"status": StatusSelesai, "tanggal_selesai": &now}).Error; err != nil {
-			return err
-		}
-		if err := recordStatusChange(tx, pengaduan.ID, uint(userID), pengaduan.Status, StatusSelesai, "Diselesaikan oleh mahasiswa"); err != nil {
-			return err
-		}
-		return createNotification(tx, pengaduan.UserID, pengaduan.ID, "Pengaduan Selesai", "Pengaduan "+pengaduan.KodeTiket+" telah diselesaikan.")
-	})
+	return errors.New("penyelesaian aduan dilakukan oleh unit terkait (Kasubag)")
 }
 
 func mapPengaduanResponses(items []models.Pengaduan) []dto.PengaduanResponse {

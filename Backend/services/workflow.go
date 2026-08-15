@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"backend/models"
+	"backend/utils"
+
 	"gorm.io/gorm"
 )
 
@@ -42,11 +44,11 @@ func isValidStatusTransition(current, next string) bool {
 	case strings.ToLower(StatusMenunggu):
 		return strings.EqualFold(next, StatusDitolak) || strings.EqualFold(next, StatusMenungguDisposisi) || strings.EqualFold(next, StatusDiteruskanUnit)
 	case strings.ToLower(StatusMenungguDisposisi):
-		return strings.EqualFold(next, StatusDiteruskanUnit)
+		return strings.EqualFold(next, StatusDiteruskanUnit) || strings.EqualFold(next, StatusDitolak)
 	case strings.ToLower(StatusDiteruskanUnit):
-		return strings.EqualFold(next, StatusDiproses)
+		return strings.EqualFold(next, StatusDiproses) || strings.EqualFold(next, StatusMenunggu)
 	case strings.ToLower(StatusDiproses):
-		return strings.EqualFold(next, StatusSelesai)
+		return strings.EqualFold(next, StatusSelesai) || strings.EqualFold(next, StatusMenunggu)
 	default:
 		return false
 	}
@@ -75,4 +77,20 @@ func createNotification(tx *gorm.DB, userID, complaintID uint, title, body strin
 		Judul:       title,
 		Isi:         body,
 	}).Error
+}
+
+func notifyActivePimpinan(tx *gorm.DB, complaintID uint, title, body string) error {
+	var users []models.User
+	if err := tx.Where("is_active = ?", true).Find(&users).Error; err != nil {
+		return err
+	}
+	for _, user := range users {
+		if utils.CanonicalRole(user.Role) != utils.RolePimpinan {
+			continue
+		}
+		if err := createNotification(tx, user.ID, complaintID, title, body); err != nil {
+			return err
+		}
+	}
+	return nil
 }

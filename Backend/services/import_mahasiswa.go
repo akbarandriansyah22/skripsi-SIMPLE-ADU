@@ -26,6 +26,7 @@ var importHeaders = []string{"nama_lengkap", "nim", "email", "program_studi", "a
 type importStudentRow struct{ Values map[string]string }
 
 func normalizeImportHeader(value string) string {
+	value = strings.TrimPrefix(strings.TrimSpace(value), "\ufeff")
 	value = strings.ToLower(strings.TrimSpace(value))
 	value = strings.NewReplacer(" ", "_", "-", "_", ".", "_").Replace(value)
 	switch value {
@@ -41,7 +42,9 @@ func normalizeImportHeader(value string) string {
 func parseImportRows(reader io.Reader, extension string) ([]importStudentRow, error) {
 	extension = strings.ToLower(filepath.Ext(extension))
 	if extension == ".csv" {
-		rows, err := csv.NewReader(reader).ReadAll()
+		csvReader := csv.NewReader(reader)
+		csvReader.TrimLeadingSpace = true
+		rows, err := csvReader.ReadAll()
 		if err != nil {
 			return nil, fmt.Errorf("CSV tidak valid: %w", err)
 		}
@@ -119,6 +122,7 @@ func rowsToStudents(rows [][]string) ([]importStudentRow, error) {
 }
 
 type xlsxCell struct {
+	Ref    string `xml:"r,attr"`
 	Type   string `xml:"t,attr"`
 	Value  string `xml:"v"`
 	Inline string `xml:"is>t"`
@@ -164,11 +168,42 @@ func parseSheetRows(data []byte, shared []string) [][]string {
 			if cell.Inline != "" {
 				value = cell.Inline
 			}
-			values = append(values, value)
+			col := excelColumnIndex(cell.Ref)
+			for len(values) < col {
+				values = append(values, "")
+			}
+			if col < len(values) {
+				values[col] = value
+			} else {
+				values = append(values, value)
+			}
 		}
 		rows = append(rows, values)
 	}
 	return rows
+}
+
+func excelColumnIndex(ref string) int {
+	letters := strings.Map(func(r rune) rune {
+		if r >= 'A' && r <= 'Z' {
+			return r
+		}
+		if r >= 'a' && r <= 'z' {
+			return r - 32
+		}
+		return -1
+	}, ref)
+	if letters == "" {
+		return 0
+	}
+	index := 0
+	for _, r := range letters {
+		index = index*26 + int(r-'A') + 1
+	}
+	if index == 0 {
+		return 0
+	}
+	return index - 1
 }
 
 func temporaryPassword() (string, error) {
@@ -198,8 +233,15 @@ func (s *AdminSistemService) ImportMahasiswa(importedBy uint, filename, extensio
 		result.BatchID = batch.ID
 		for index, row := range rows {
 			item := dto.ImportMahasiswaRowResponse{RowNumber: index + 2, NIM: row.Values["nim"], Email: strings.ToLower(row.Values["email"])}
+			savepoint := fmt.Sprintf("sp_row_%d", item.RowNumber)
+			if err := tx.SavePoint(savepoint).Error; err != nil {
+				return err
+			}
 			password, rowErr := importOneStudent(tx, row.Values)
 			if rowErr != nil {
+				if err := tx.RollbackTo(savepoint).Error; err != nil {
+					return err
+				}
 				item.Status = "gagal"
 				item.Reason = rowErr.Error()
 				result.FailedRows++
@@ -220,6 +262,54 @@ func (s *AdminSistemService) ImportMahasiswa(importedBy uint, filename, extensio
 		return nil, err
 	}
 	return result, nil
+}
+
+func (s *AdminSistemService) ImportHistory() ([]dto.ImportMahasiswaBatchResponse, error) {
+	var batches []models.ImportMahasiswaBatch
+	if err := config.DB.Order("created_at DESC").Find(&batches).Error; err != nil {
+		return nil, err
+	}
+	result := make([]dto.ImportMahasiswaBatchResponse, 0, len(batches))
+	for _, batch := range batches {
+		result = append(result, mapImportBatch(batch, nil))
+	}
+	return result, nil
+}
+
+func (s *AdminSistemService) ImportHistoryDetail(id uint64) (*dto.ImportMahasiswaBatchResponse, error) {
+	var batch models.ImportMahasiswaBatch
+	if err := config.DB.First(&batch, id).Error; err != nil {
+		return nil, err
+	}
+	var rows []models.ImportMahasiswaRow
+	if err := config.DB.Where("batch_id = ?", batch.ID).Order("row_number ASC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	mappedRows := make([]dto.ImportMahasiswaRowResponse, 0, len(rows))
+	for _, row := range rows {
+		mappedRows = append(mappedRows, dto.ImportMahasiswaRowResponse{
+			RowNumber: row.RowNumber,
+			NIM:       row.NIM,
+			Email:     row.Email,
+			Status:    row.Status,
+			Reason:    row.Reason,
+		})
+	}
+	result := mapImportBatch(batch, mappedRows)
+	return &result, nil
+}
+
+func mapImportBatch(batch models.ImportMahasiswaBatch, rows []dto.ImportMahasiswaRowResponse) dto.ImportMahasiswaBatchResponse {
+	return dto.ImportMahasiswaBatchResponse{
+		ID:          batch.ID,
+		ImportedBy:  batch.ImportedBy,
+		FileName:    batch.FileName,
+		TotalRows:   batch.TotalRows,
+		SuccessRows: batch.SuccessRows,
+		FailedRows:  batch.FailedRows,
+		CreatedAt:   batch.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		Rows:        rows,
+	}
 }
 
 func importOneStudent(tx *gorm.DB, values map[string]string) (string, error) {
