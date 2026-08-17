@@ -2,26 +2,32 @@ package models
 
 import "time"
 
-type ImportMahasiswaBatch struct {
-	ID          uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	ImportedBy  uint      `gorm:"column:imported_by;not null" json:"imported_by"`
-	FileName    string    `gorm:"column:file_name;size:255;not null" json:"file_name"`
-	TotalRows   int       `gorm:"column:total_rows;not null" json:"total_rows"`
-	SuccessRows int       `gorm:"column:success_rows;not null" json:"success_rows"`
-	FailedRows  int       `gorm:"column:failed_rows;not null" json:"failed_rows"`
-	CreatedAt   time.Time `gorm:"column:created_at" json:"created_at"`
+type ImportMahasiswa struct {
+	ID             uint       `gorm:"primaryKey;autoIncrement" json:"id"`
+	AdminSistemID  uint       `gorm:"column:admin_sistem_id;not null" json:"admin_sistem_id"`
+	NamaFile       string     `gorm:"column:nama_file;size:255;not null" json:"nama_file"`
+	Status         string     `gorm:"column:status;size:20;not null;default:Diproses" json:"status"`
+	TotalData      int        `gorm:"column:total_data;not null" json:"total_data"`
+	JumlahBerhasil int        `gorm:"column:jumlah_berhasil;not null" json:"jumlah_berhasil"`
+	JumlahGagal    int        `gorm:"column:jumlah_gagal;not null" json:"jumlah_gagal"`
+	CreatedAt      time.Time  `gorm:"column:created_at" json:"created_at"`
+	CompletedAt    *time.Time `gorm:"column:completed_at" json:"completed_at,omitempty"`
 }
 
-type ImportMahasiswaRow struct {
-	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	BatchID   uint      `gorm:"column:batch_id;not null;index" json:"batch_id"`
-	RowNumber int       `gorm:"column:row_number;not null" json:"row_number"`
-	NIM       string    `gorm:"column:nim;size:50" json:"nim"`
-	Email     string    `gorm:"column:email;size:150" json:"email"`
-	Status    string    `gorm:"column:status;size:20;not null" json:"status"`
-	Reason    string    `gorm:"column:reason;type:text" json:"reason"`
-	CreatedAt time.Time `gorm:"column:created_at" json:"created_at"`
+type DetailImportMahasiswa struct {
+	ID           uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	ImportID     uint      `gorm:"column:import_id;not null;index" json:"import_id"`
+	NomorBaris   int       `gorm:"column:nomor_baris;not null" json:"nomor_baris"`
+	NamaLengkap  *string   `gorm:"column:nama_lengkap;size:150" json:"nama_lengkap,omitempty"`
+	NIM          *string   `gorm:"column:nim;size:20" json:"nim,omitempty"`
+	Email        *string   `gorm:"column:email;size:150" json:"email,omitempty"`
+	ProgramStudi *string   `gorm:"column:program_studi;size:100" json:"program_studi,omitempty"`
+	Angkatan     *int      `gorm:"column:angkatan" json:"angkatan,omitempty"`
+	Status       string    `gorm:"column:status;size:20;not null" json:"status"`
+	UserID       *uint     `gorm:"column:user_id" json:"user_id,omitempty"`
+	PesanError   *string   `gorm:"column:pesan_error;type:text" json:"pesan_error,omitempty"`
+	CreatedAt    time.Time `gorm:"column:created_at" json:"created_at"`
 }
 
-func (ImportMahasiswaBatch) TableName() string { return "import_mahasiswa_batch" }
-func (ImportMahasiswaRow) TableName() string   { return "import_mahasiswa_row" }
+func (ImportMahasiswa) TableName() string       { return "import_mahasiswa" }
+func (DetailImportMahasiswa) TableName() string { return "detail_import_mahasiswa" }

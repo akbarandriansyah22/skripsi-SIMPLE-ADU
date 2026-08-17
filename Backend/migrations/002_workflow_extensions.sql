@@ -1,4 +1,4 @@
-ALTER TABLE users ADD COLUMN IF NOT EXISTS password_must_change boolean NOT NULL DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password boolean NOT NULL DEFAULT false;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS unit_id bigint;
 ALTER TABLE kategori_pengaduan ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true;
 ALTER TABLE unit ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true;
@@ -72,22 +72,4 @@ CREATE TABLE IF NOT EXISTS koordinasi_internal (
 );
 CREATE INDEX IF NOT EXISTS idx_koordinasi_internal_pengaduan ON koordinasi_internal(pengaduan_id, created_at);
 
-CREATE TABLE IF NOT EXISTS import_mahasiswa_batch (
-    id bigserial PRIMARY KEY,
-    imported_by bigint NOT NULL REFERENCES users(id) ON UPDATE CASCADE ON DELETE RESTRICT,
-    file_name varchar(255) NOT NULL,
-    total_rows integer NOT NULL DEFAULT 0,
-    success_rows integer NOT NULL DEFAULT 0,
-    failed_rows integer NOT NULL DEFAULT 0,
-    created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE TABLE IF NOT EXISTS import_mahasiswa_row (
-    id bigserial PRIMARY KEY,
-    batch_id bigint NOT NULL REFERENCES import_mahasiswa_batch(id) ON UPDATE CASCADE ON DELETE CASCADE,
-    row_number integer NOT NULL,
-    nim varchar(50),
-    email varchar(150),
-    status varchar(20) NOT NULL,
-    reason text,
-    created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
+

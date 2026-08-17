@@ -171,16 +171,28 @@ func attachCoordination(result *dto.PengaduanResponse, pengaduanID uint) error {
 }
 
 func (s *PimpinanService) isPimpinanHistoryItem(item *models.Pengaduan) bool {
-	return item.HasilAI != nil &&
-		strings.EqualFold(item.HasilAI.Urgensi, "Tinggi") &&
-		item.Validasi != nil &&
-		strings.EqualFold(item.Validasi.StatusValidasi, "Diterima") &&
-		hasPimpinanEntry(item)
+	if item.HasilAI == nil || !strings.EqualFold(item.HasilAI.Urgensi, "Tinggi") {
+		return false
+	}
+	if item.Validasi != nil && strings.EqualFold(item.Validasi.StatusValidasi, "Diterima") {
+		return true
+	}
+	return hasPimpinanEntry(item)
 }
 
 func hasPimpinanEntry(item *models.Pengaduan) bool {
+	if item.Disposisi != nil {
+		return true
+	}
+	switch strings.ToLower(item.Status) {
+	case strings.ToLower(StatusMenungguDisposisi), strings.ToLower(StatusDiteruskanUnit), strings.ToLower(StatusDiproses), strings.ToLower(StatusSelesai):
+		return true
+	}
 	for _, history := range item.RiwayatStatus {
-		if strings.EqualFold(history.StatusBaru, StatusMenungguDisposisi) {
+		if strings.EqualFold(history.StatusBaru, StatusMenungguDisposisi) ||
+			strings.EqualFold(history.StatusBaru, StatusDiteruskanUnit) ||
+			strings.EqualFold(history.StatusBaru, StatusDiproses) ||
+			strings.EqualFold(history.StatusBaru, StatusSelesai) {
 			return true
 		}
 	}
@@ -190,9 +202,13 @@ func hasPimpinanEntry(item *models.Pengaduan) bool {
 func pimpinanEntryTime(item *models.Pengaduan) (time.Time, bool) {
 	var result time.Time
 	for _, history := range item.RiwayatStatus {
-		if strings.EqualFold(history.StatusBaru, StatusMenungguDisposisi) && (result.IsZero() || history.CreatedAt.Before(result)) {
+		if (strings.EqualFold(history.StatusBaru, StatusMenungguDisposisi) || strings.EqualFold(history.StatusBaru, StatusDiteruskanUnit)) &&
+			(result.IsZero() || history.CreatedAt.Before(result)) {
 			result = history.CreatedAt
 		}
+	}
+	if result.IsZero() && item.Disposisi != nil {
+		return item.Disposisi.CreatedAt, true
 	}
 	return result, !result.IsZero()
 }
@@ -261,14 +277,14 @@ func isMonitoringItem(item *models.Pengaduan) bool {
 	if item.Disposisi != nil || item.UnitID != nil {
 		return true
 	}
+	if item.HasilAI != nil && strings.EqualFold(item.HasilAI.Urgensi, "Tinggi") && hasPimpinanEntry(item) {
+		return true
+	}
 	switch strings.ToLower(item.Status) {
 	case strings.ToLower(StatusMenungguDisposisi), strings.ToLower(StatusDiteruskanUnit), strings.ToLower(StatusDiproses), strings.ToLower(StatusSelesai):
 		return true
 	default:
-		return item.HasilAI != nil &&
-			strings.EqualFold(item.HasilAI.Urgensi, "Tinggi") &&
-			item.Validasi != nil &&
-			strings.EqualFold(item.Validasi.StatusValidasi, "Diterima")
+		return false
 	}
 }
 
@@ -342,9 +358,10 @@ func (s *PimpinanService) urgensiTinggi() ([]models.Pengaduan, error) {
 	}
 
 	filtered := make([]models.Pengaduan, 0)
-	for _, item := range items {
-		if item.HasilAI != nil && strings.EqualFold(item.HasilAI.Urgensi, "Tinggi") && strings.EqualFold(item.Status, StatusDiteruskan) {
-			filtered = append(filtered, item)
+	for index := range items {
+		item := &items[index]
+		if item.HasilAI != nil && strings.EqualFold(item.HasilAI.Urgensi, "Tinggi") && s.isPimpinanHistoryItem(item) {
+			filtered = append(filtered, *item)
 		}
 	}
 

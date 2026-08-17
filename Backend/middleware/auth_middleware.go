@@ -53,7 +53,7 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 		var user models.User
-		if err := config.DB.Select("id", "role", "unit_id", "is_active", "password_must_change").First(&user, userID).Error; err != nil || !user.IsActive {
+		if err := config.DB.Select("id", "role", "unit_id", "is_active", "must_change_password").First(&user, userID).Error; err != nil || !user.IsActive {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"success": false, "message": "akun tidak aktif atau tidak ditemukan"})
 			return
 		}

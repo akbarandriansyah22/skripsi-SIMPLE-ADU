@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"strings"
+	"time"
 
 	dto "backend/DTO"
 	"backend/models"
@@ -66,6 +67,7 @@ func (s *AuthService) Register(req dto.RegisterRequest) (*dto.LoginResponse, err
 		PasswordHash: hashPassword,
 		Role:         "mahasiswa",
 		IsActive:     true,
+		SumberAkun:   "manual",
 	}
 
 	// Mahasiswa
@@ -73,7 +75,7 @@ func (s *AuthService) Register(req dto.RegisterRequest) (*dto.LoginResponse, err
 		NIM:          req.NIM,
 		ProgramStudi: req.ProgramStudi,
 		Angkatan:     req.Angkatan,
-		NoHP:         req.NoHP,
+		NoHP:         optionalString(req.NoHP),
 	}
 
 	// Simpan ke database
@@ -138,6 +140,9 @@ func (s *AuthService) Login(req dto.LoginRequest) (*dto.LoginResponse, error) {
 		return nil, err
 	}
 
+	now := time.Now()
+	_ = s.repo.DB.Model(&models.User{}).Where("id = ?", user.ID).Update("last_login_at", &now).Error
+
 	return &dto.LoginResponse{
 		Token: token,
 		User: dto.UserResponse{
@@ -165,7 +170,7 @@ func (s *AuthService) ChangePassword(userID uint, req dto.ChangePasswordRequest)
 	if err != nil {
 		return err
 	}
-	return s.repo.DB.Model(&models.User{}).Where("id = ?", userID).Updates(map[string]any{"password_hash": hash, "password_must_change": false}).Error
+	return s.repo.DB.Model(&models.User{}).Where("id = ?", userID).Updates(map[string]any{"password_hash": hash, "must_change_password": false}).Error
 }
 
 // =======================================

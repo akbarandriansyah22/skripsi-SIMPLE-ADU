@@ -80,7 +80,7 @@ func (s *AdminSistemService) CreateUser(req dto.CreateUserRequest) (*models.User
 		if err != nil {
 			return err
 		}
-		returnUser = &models.User{NamaLengkap: strings.TrimSpace(req.NamaLengkap), Email: strings.ToLower(strings.TrimSpace(req.Email)), PasswordHash: hash, Role: role, UnitID: unitID, IsActive: true, PasswordMustChange: false}
+		returnUser = &models.User{NamaLengkap: strings.TrimSpace(req.NamaLengkap), Email: strings.ToLower(strings.TrimSpace(req.Email)), PasswordHash: hash, Role: role, UnitID: unitID, IsActive: true, PasswordMustChange: false, SumberAkun: "manual"}
 		return tx.Create(returnUser).Error
 	})
 	return returnUser, err
@@ -120,7 +120,7 @@ func (s *AdminSistemService) ResetPassword(id uint64, password string) error {
 	if err != nil {
 		return err
 	}
-	return config.DB.Model(&models.User{}).Where("id = ?", id).Updates(map[string]any{"password_hash": hash, "password_must_change": false}).Error
+	return config.DB.Model(&models.User{}).Where("id = ?", id).Updates(map[string]any{"password_hash": hash, "must_change_password": false}).Error
 }
 
 func (s *AdminSistemService) Units() ([]models.Unit, error) {

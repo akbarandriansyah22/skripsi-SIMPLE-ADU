@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	dto "backend/DTO"
 	"backend/config"
@@ -226,7 +227,12 @@ func (s *AdminSistemService) ImportMahasiswa(importedBy uint, filename, extensio
 	}
 	result := &dto.ImportMahasiswaResponse{TotalRows: len(rows), Rows: make([]dto.ImportMahasiswaRowResponse, 0, len(rows))}
 	err = config.DB.Transaction(func(tx *gorm.DB) error {
-		batch := &models.ImportMahasiswaBatch{ImportedBy: importedBy, FileName: filepath.Base(filename), TotalRows: len(rows)}
+		batch := &models.ImportMahasiswa{
+			AdminSistemID: importedBy,
+			NamaFile:      filepath.Base(filename),
+			Status:        "Diproses",
+			TotalData:     len(rows),
+		}
 		if err := tx.Create(batch).Error; err != nil {
 			return err
 		}
@@ -237,7 +243,8 @@ func (s *AdminSistemService) ImportMahasiswa(importedBy uint, filename, extensio
 			if err := tx.SavePoint(savepoint).Error; err != nil {
 				return err
 			}
-			password, rowErr := importOneStudent(tx, row.Values)
+			password, userID, rowErr := importOneStudent(tx, row.Values)
+			detail := detailFromImportRow(batch.ID, item.RowNumber, row.Values)
 			if rowErr != nil {
 				if err := tx.RollbackTo(savepoint).Error; err != nil {
 					return err
@@ -245,18 +252,30 @@ func (s *AdminSistemService) ImportMahasiswa(importedBy uint, filename, extensio
 				item.Status = "gagal"
 				item.Reason = rowErr.Error()
 				result.FailedRows++
+				detail.Status = "Gagal"
+				detail.UserID = nil
+				detail.PesanError = optionalString(item.Reason)
 			} else {
 				item.Status = "berhasil"
 				item.TemporaryPassword = password
 				result.SuccessRows++
+				detail.Status = "Berhasil"
+				detail.UserID = &userID
+				detail.PesanError = nil
 			}
 			result.Rows = append(result.Rows, item)
-			history := &models.ImportMahasiswaRow{BatchID: batch.ID, RowNumber: item.RowNumber, NIM: item.NIM, Email: item.Email, Status: item.Status, Reason: item.Reason}
-			if err := tx.Create(history).Error; err != nil {
+			if err := tx.Create(detail).Error; err != nil {
 				return err
 			}
 		}
-		return tx.Model(batch).Updates(map[string]any{"success_rows": result.SuccessRows, "failed_rows": result.FailedRows}).Error
+		now := time.Now()
+		return tx.Model(batch).Updates(map[string]any{
+			"status":          "Selesai",
+			"completed_at":    &now,
+			"total_data":      result.TotalRows,
+			"jumlah_berhasil": result.SuccessRows,
+			"jumlah_gagal":    result.FailedRows,
+		}).Error
 	})
 	if err != nil {
 		return nil, err
@@ -265,7 +284,7 @@ func (s *AdminSistemService) ImportMahasiswa(importedBy uint, filename, extensio
 }
 
 func (s *AdminSistemService) ImportHistory() ([]dto.ImportMahasiswaBatchResponse, error) {
-	var batches []models.ImportMahasiswaBatch
+	var batches []models.ImportMahasiswa
 	if err := config.DB.Order("created_at DESC").Find(&batches).Error; err != nil {
 		return nil, err
 	}
@@ -277,82 +296,105 @@ func (s *AdminSistemService) ImportHistory() ([]dto.ImportMahasiswaBatchResponse
 }
 
 func (s *AdminSistemService) ImportHistoryDetail(id uint64) (*dto.ImportMahasiswaBatchResponse, error) {
-	var batch models.ImportMahasiswaBatch
+	var batch models.ImportMahasiswa
 	if err := config.DB.First(&batch, id).Error; err != nil {
 		return nil, err
 	}
-	var rows []models.ImportMahasiswaRow
-	if err := config.DB.Where("batch_id = ?", batch.ID).Order("row_number ASC").Find(&rows).Error; err != nil {
+	var rows []models.DetailImportMahasiswa
+	if err := config.DB.Where("import_id = ?", batch.ID).Order("nomor_baris ASC").Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	mappedRows := make([]dto.ImportMahasiswaRowResponse, 0, len(rows))
 	for _, row := range rows {
 		mappedRows = append(mappedRows, dto.ImportMahasiswaRowResponse{
-			RowNumber: row.RowNumber,
-			NIM:       row.NIM,
-			Email:     row.Email,
-			Status:    row.Status,
-			Reason:    row.Reason,
+			RowNumber: row.NomorBaris,
+			NIM:       stringValue(row.NIM),
+			Email:     stringValue(row.Email),
+			Status:    strings.ToLower(row.Status),
+			Reason:    stringValue(row.PesanError),
 		})
 	}
 	result := mapImportBatch(batch, mappedRows)
 	return &result, nil
 }
 
-func mapImportBatch(batch models.ImportMahasiswaBatch, rows []dto.ImportMahasiswaRowResponse) dto.ImportMahasiswaBatchResponse {
+func mapImportBatch(batch models.ImportMahasiswa, rows []dto.ImportMahasiswaRowResponse) dto.ImportMahasiswaBatchResponse {
 	return dto.ImportMahasiswaBatchResponse{
 		ID:          batch.ID,
-		ImportedBy:  batch.ImportedBy,
-		FileName:    batch.FileName,
-		TotalRows:   batch.TotalRows,
-		SuccessRows: batch.SuccessRows,
-		FailedRows:  batch.FailedRows,
+		ImportedBy:  batch.AdminSistemID,
+		FileName:    batch.NamaFile,
+		TotalRows:   batch.TotalData,
+		SuccessRows: batch.JumlahBerhasil,
+		FailedRows:  batch.JumlahGagal,
 		CreatedAt:   batch.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		Rows:        rows,
 	}
 }
 
-func importOneStudent(tx *gorm.DB, values map[string]string) (string, error) {
+func detailFromImportRow(importID uint, nomorBaris int, values map[string]string) *models.DetailImportMahasiswa {
+	detail := &models.DetailImportMahasiswa{
+		ImportID:     importID,
+		NomorBaris:   nomorBaris,
+		NamaLengkap:  optionalString(values["nama_lengkap"]),
+		NIM:          optionalString(values["nim"]),
+		Email:        optionalString(strings.ToLower(values["email"])),
+		ProgramStudi: optionalString(values["program_studi"]),
+	}
+	if angkatan, err := strconv.Atoi(strings.TrimSpace(values["angkatan"])); err == nil && angkatan >= 2000 && angkatan <= 2100 {
+		detail.Angkatan = &angkatan
+	}
+	return detail
+}
+
+func importOneStudent(tx *gorm.DB, values map[string]string) (string, uint, error) {
 	for _, field := range importHeaders {
 		if strings.TrimSpace(values[field]) == "" {
-			return "", fmt.Errorf("kolom %s wajib diisi", field)
+			return "", 0, fmt.Errorf("kolom %s wajib diisi", field)
 		}
 	}
 	if !strings.Contains(values["email"], "@") {
-		return "", errors.New("format email tidak valid")
+		return "", 0, errors.New("format email tidak valid")
 	}
 	angkatan, err := strconv.Atoi(values["angkatan"])
-	if err != nil || angkatan < 1900 || angkatan > 2200 {
-		return "", errors.New("angkatan harus berupa tahun yang valid")
+	if err != nil || angkatan < 2000 || angkatan > 2100 {
+		return "", 0, errors.New("angkatan harus berupa tahun yang valid")
 	}
 	var count int64
 	if err := tx.Model(&models.User{}).Where("LOWER(email) = ?", strings.ToLower(values["email"])).Count(&count).Error; err != nil {
-		return "", err
+		return "", 0, err
 	}
 	if count > 0 {
-		return "", errors.New("email sudah terdaftar")
+		return "", 0, errors.New("email sudah terdaftar")
 	}
 	if err := tx.Model(&models.Mahasiswa{}).Where("nim = ?", values["nim"]).Count(&count).Error; err != nil {
-		return "", err
+		return "", 0, err
 	}
 	if count > 0 {
-		return "", errors.New("NIM sudah terdaftar")
+		return "", 0, errors.New("NIM sudah terdaftar")
 	}
 	password, err := temporaryPassword()
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	hash, err := utils.HashPassword(password)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
-	user := &models.User{NamaLengkap: values["nama_lengkap"], Email: strings.ToLower(values["email"]), PasswordHash: hash, Role: utils.RoleMahasiswa, IsActive: true, PasswordMustChange: true}
+	user := &models.User{
+		NamaLengkap:        values["nama_lengkap"],
+		Email:              strings.ToLower(values["email"]),
+		PasswordHash:       hash,
+		Role:               utils.RoleMahasiswa,
+		IsActive:           true,
+		PasswordMustChange: true,
+		SumberAkun:         "import",
+	}
 	if err := tx.Create(user).Error; err != nil {
-		return "", err
+		return "", 0, err
 	}
 	student := &models.Mahasiswa{UserID: user.ID, NIM: values["nim"], ProgramStudi: values["program_studi"], Angkatan: angkatan}
 	if err := tx.Create(student).Error; err != nil {
-		return "", err
+		return "", 0, err
 	}
-	return password, nil
+	return password, user.ID, nil
 }

@@ -40,7 +40,7 @@ func (s *MahasiswaService) UpdateProfile(userID uint64, req dto.UpdateProfileReq
 			return err
 		}
 
-		mahasiswa.NoHP = req.NoHP
+		mahasiswa.NoHP = optionalString(req.NoHP)
 		if err := tx.Save(&mahasiswa).Error; err != nil {
 			return err
 		}

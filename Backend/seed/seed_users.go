@@ -138,6 +138,7 @@ func upsertDemoUser(tx *gorm.DB, demo demoUser, unitID uint) (*models.User, erro
 			PasswordHash: passwordHash,
 			Role:         demo.Role,
 			IsActive:     true,
+			SumberAkun:   "manual",
 		}
 		if unitID != 0 {
 			user.UnitID = &unitID
@@ -171,7 +172,12 @@ func upsertDemoMahasiswa(tx *gorm.DB, userID uint, demo demoUser) error {
 	var mahasiswa models.Mahasiswa
 	err := tx.Where("user_id = ?", userID).First(&mahasiswa).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return tx.Create(&models.Mahasiswa{UserID: userID, NIM: demo.NIM, ProgramStudi: demo.ProgramStudi, Angkatan: demo.Angkatan, NoHP: demo.NoHP}).Error
+		noHP := strings.TrimSpace(demo.NoHP)
+		student := &models.Mahasiswa{UserID: userID, NIM: demo.NIM, ProgramStudi: demo.ProgramStudi, Angkatan: demo.Angkatan}
+		if noHP != "" {
+			student.NoHP = &noHP
+		}
+		return tx.Create(student).Error
 	}
 	return err
 }

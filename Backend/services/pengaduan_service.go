@@ -88,6 +88,11 @@ func (s *PengaduanService) Create(userID uint, req dto.CreatePengaduanRequest) (
 				return err
 			}
 		}
+		if analysis != nil && strings.EqualFold(analysis.Urgensi, "Tinggi") {
+			if err := notifyActivePimpinan(tx, pengaduan.ID, "Pengaduan Urgensi Tinggi", "Pengaduan "+pengaduan.KodeTiket+" terdeteksi urgensi Tinggi oleh AI."); err != nil {
+				return err
+			}
+		}
 		return nil
 	}); err != nil {
 		return nil, err
@@ -318,7 +323,12 @@ func (s *PengaduanService) Update(userID uint64, id uint64, req dto.UpdatePengad
 			return err
 		}
 		if analysis != nil {
-			return tx.Create(hasilAIFromResponse(uint(id), analysis)).Error
+			if err := tx.Create(hasilAIFromResponse(uint(id), analysis)).Error; err != nil {
+				return err
+			}
+			if strings.EqualFold(analysis.Urgensi, "Tinggi") {
+				return notifyActivePimpinan(tx, uint(id), "Pengaduan Urgensi Tinggi", "Pengaduan "+pengaduan.KodeTiket+" terdeteksi urgensi Tinggi oleh AI.")
+			}
 		}
 		return nil
 	}); err != nil {
